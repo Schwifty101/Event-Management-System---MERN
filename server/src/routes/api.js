@@ -8,6 +8,7 @@ import judgeRoutes from './judgeRoutes.js';
 import sponsorPackageRoutes from './sponsorPackageRoutes.js';
 import sponsorProfileRoutes from './sponsorProfileRoutes.js';
 import sponsorshipRoutes from './sponsorshipRoutes.js';
+import accommodationRoutes from './accommodationRoutes.js';
 
 const router = express.Router();
 
@@ -28,5 +29,8 @@ router.use('/judges', judgeRoutes);
 router.use('/sponsor-packages', sponsorPackageRoutes);
 router.use('/sponsor-profiles', sponsorProfileRoutes);
 router.use('/sponsorships', sponsorshipRoutes);
+
+// Accommodation management routes
+router.use('/accommodations', accommodationRoutes);
 
 export default router;
