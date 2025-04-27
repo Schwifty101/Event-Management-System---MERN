@@ -7,7 +7,8 @@ import {
     updateAssignmentStatus,
     removeJudgeAssignment,
     submitScores,
-    declareWinners
+    declareWinners,
+    getLeaderboard
 } from '../controllers/judgeController.js';
 import { authenticate, authorize } from '../middleware/authMiddleware.js';
 
@@ -26,5 +27,6 @@ router.post('/rounds/:roundId/scores', authenticate, authorize(['judge']), submi
 // Routes for event stakeholders
 router.get('/events/:eventId', authenticate, getEventJudges);
 router.get('/rounds/:roundId', authenticate, getRoundJudges);
+router.get('/rounds/:roundId/leaderboard', authenticate, getLeaderboard);
 
 export default router;

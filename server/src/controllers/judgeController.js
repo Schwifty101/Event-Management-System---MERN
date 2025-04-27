@@ -279,12 +279,16 @@ export const submitScores = async (req, res) => {
 };
 
 /**
- * Declare winners for a round
+ * Declare winners for a round and advance them to the next round if applicable
  */
 export const declareWinners = async (req, res) => {
     try {
         const { roundId } = req.params;
-        const { winners } = req.body;
+        const { winnerIds, nextRoundId } = req.body;
+
+        if (!winnerIds || !Array.isArray(winnerIds) || winnerIds.length === 0) {
+            return res.status(400).json({ message: 'At least one winner must be specified' });
+        }
 
         // Check if round exists
         const round = await EventRound.findById(roundId);
@@ -303,45 +307,128 @@ export const declareWinners = async (req, res) => {
         }
 
         // Update participant status to 'advanced' for winners
-        for (const winner of winners) {
-            const { participant_id, team_id } = winner;
-
-            if (!participant_id && !team_id) {
-                return res.status(400).json({
-                    message: 'Each winner entry must have either participant_id or team_id'
-                });
-            }
-
-            // Update status
+        for (const winnerId of winnerIds) {
             try {
-                await EventRound.updateParticipantStatus(roundId, participant_id, { status: 'advanced' });
+                await EventRound.updateParticipantStatus(roundId, winnerId, { status: 'advanced' });
             } catch (error) {
-                console.error(`Failed to update status for participant ${participant_id}:`, error);
+                console.error(`Failed to update status for participant ${winnerId}:`, error);
             }
         }
 
         // Mark all non-winners as 'eliminated'
-        const participants = await EventRound.getParticipants(roundId);
-
-        for (const participant of participants) {
-            const isWinner = winners.some(w =>
-                w.participant_id === participant.user_id || w.team_id === participant.team_id
-            );
+        const allParticipants = await EventRound.getParticipants(roundId);
+        for (const participant of allParticipants) {
+            const participantId = participant.user_id || participant.team_id;
+            const isWinner = winnerIds.includes(participantId);
 
             if (!isWinner && participant.status !== 'advanced') {
                 try {
-                    await EventRound.updateParticipantStatus(roundId, participant.user_id, {
-                        status: 'eliminated'
-                    });
+                    await EventRound.updateParticipantStatus(
+                        roundId,
+                        participantId,
+                        { status: 'eliminated' }
+                    );
                 } catch (error) {
-                    console.error(`Failed to update status for participant ${participant.user_id}:`, error);
+                    console.error(`Failed to update status for participant ${participantId}:`, error);
                 }
             }
         }
 
-        res.status(200).json({ message: 'Winners declared successfully' });
+        // If nextRoundId is provided, advance winners to the next round
+        let advancementResult = null;
+        if (nextRoundId) {
+            // Check if next round exists and belongs to the same event
+            const nextRound = await EventRound.findById(nextRoundId);
+            if (!nextRound) {
+                return res.status(404).json({ message: 'Next round not found' });
+            }
+
+            if (nextRound.event_id !== round.event_id) {
+                return res.status(400).json({
+                    message: 'Next round must belong to the same event'
+                });
+            }
+
+            try {
+                advancementResult = await EventRound.advanceWinnersToNextRound(
+                    roundId,
+                    nextRoundId,
+                    winnerIds
+                );
+            } catch (error) {
+                console.error('Error advancing winners:', error);
+                return res.status(500).json({
+                    message: 'Error advancing winners to next round',
+                    error: error.message
+                });
+            }
+        }
+
+        res.status(200).json({
+            message: 'Winners declared successfully',
+            winners: await EventRound.getWinners(roundId),
+            advancedToNextRound: advancementResult !== null
+        });
     } catch (error) {
         console.error('Error in declareWinners:', error);
+        res.status(500).json({ message: 'Server error', error: error.message });
+    }
+};
+
+/**
+ * Get leaderboard for a round
+ */
+export const getLeaderboard = async (req, res) => {
+    try {
+        const { roundId } = req.params;
+
+        // Check if round exists
+        const round = await EventRound.findById(roundId);
+        if (!round) {
+            return res.status(404).json({ message: 'Round not found' });
+        }
+
+        // Get event details
+        const event = await Event.findById(round.event_id);
+        if (!event) {
+            return res.status(404).json({ message: 'Event not found' });
+        }
+
+        // Get all participants with scores for this round
+        const participants = await EventRound.getParticipantsWithScores(roundId);
+
+        // Sort participants by score in descending order
+        const rankedParticipants = participants.sort((a, b) => b.score - a.score);
+
+        // Add rank to each participant
+        let currentRank = 1;
+        let currentScore = null;
+        let sameRankCount = 0;
+
+        const leaderboard = rankedParticipants.map((participant, index) => {
+            // Handle tied scores (same rank)
+            if (participant.score !== currentScore) {
+                currentRank = index + 1 - sameRankCount;
+                currentScore = participant.score;
+                sameRankCount = 0;
+            } else {
+                sameRankCount++;
+            }
+
+            return {
+                ...participant,
+                rank: currentRank
+            };
+        });
+
+        res.status(200).json({
+            eventName: event.title,
+            roundName: round.name,
+            roundType: round.round_type,
+            leaderboard
+        });
+    } catch (error) {
+        console.error('Error in getLeaderboard:', error);
         res.status(500).json({ message: 'Server error', error: error.message });
     }
 };

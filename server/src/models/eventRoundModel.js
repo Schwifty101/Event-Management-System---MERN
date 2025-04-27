@@ -3,45 +3,31 @@ import { pool } from '../config/db.js';
 export class EventRound {
     /**
      * Create a new event round
-     * @param {Object} roundData - Round data to create
+     * @param {Object} roundData - Round data
      * @returns {Object} Created round
      */
     static async create(roundData) {
         try {
             const {
-                event_id, name, description, start_time, end_time,
-                location, capacity, round_type, status
+                event_id, name, description, round_type,
+                start_time, end_time, location, max_participants
             } = roundData;
 
-            // Validate required fields
-            if (!event_id || !name || !start_time || !end_time) {
-                throw new Error('Missing required fields');
-            }
-
-            // Check for time conflicts with other rounds in the same event
-            const conflicts = await this.checkTimeConflicts(event_id, null, start_time, end_time);
-            if (conflicts.length > 0) {
-                throw new Error('Time conflict with another round in this event');
+            if (!event_id || !name || !round_type) {
+                throw new Error('Event ID, name, and round type are required');
             }
 
             const query = `
                 INSERT INTO event_rounds (
-                    event_id, name, description, start_time, end_time,
-                    location, capacity, round_type, status
-                )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    event_id, name, description, round_type,
+                    start_time, end_time, location, max_participants
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             `;
 
             const [result] = await pool.execute(query, [
-                event_id,
-                name,
-                description || null,
-                start_time,
-                end_time,
-                location || null,
-                capacity || null,
-                round_type || 'preliminary',
-                status || 'upcoming'
+                event_id, name, description, round_type,
+                start_time || null, end_time || null,
+                location || null, max_participants || null
             ]);
 
             return { id: result.insertId, ...roundData };
@@ -52,19 +38,18 @@ export class EventRound {
 
     /**
      * Find a round by ID
-     * @param {number} id - Round ID to search for
+     * @param {number} id - Round ID
      * @returns {Object|null} Round object or null if not found
      */
     static async findById(id) {
         try {
-            const query = `
-                SELECT r.*, e.title as event_title
-                FROM event_rounds r
-                JOIN events e ON r.event_id = e.id
-                WHERE r.id = ?
-            `;
+            const [rows] = await pool.execute(`
+                SELECT er.*, e.title as event_title
+                FROM event_rounds er
+                JOIN events e ON er.event_id = e.id
+                WHERE er.id = ?
+            `, [id]);
 
-            const [rows] = await pool.execute(query, [id]);
             return rows.length ? rows[0] : null;
         } catch (error) {
             throw error;
@@ -72,19 +57,20 @@ export class EventRound {
     }
 
     /**
-     * Get all rounds for an event
+     * Find rounds by event ID
      * @param {number} eventId - Event ID
      * @returns {Array} Array of rounds
      */
     static async findByEventId(eventId) {
         try {
-            const query = `
-                SELECT * FROM event_rounds
-                WHERE event_id = ?
-                ORDER BY start_time
-            `;
+            const [rows] = await pool.execute(`
+                SELECT er.*, 
+                       (SELECT COUNT(*) FROM round_participants WHERE round_id = er.id) as participant_count
+                FROM event_rounds er
+                WHERE er.event_id = ?
+                ORDER BY er.start_time IS NULL, er.start_time
+            `, [eventId]);
 
-            const [rows] = await pool.execute(query, [eventId]);
             return rows;
         } catch (error) {
             throw error;
@@ -93,65 +79,42 @@ export class EventRound {
 
     /**
      * Update a round
-     * @param {number} id - Round ID to update
-     * @param {Object} roundData - Updated round data
+     * @param {number} id - Round ID
+     * @param {Object} updateData - Data to update
      * @returns {Object} Updated round
      */
-    static async update(id, roundData) {
+    static async update(id, updateData) {
         try {
-            const {
-                name, description, start_time, end_time,
-                location, capacity, round_type, status
-            } = roundData;
+            const allowedFields = [
+                'name', 'description', 'round_type',
+                'start_time', 'end_time', 'location', 'max_participants', 'status'
+            ];
 
-            // Get current round data
-            const currentRound = await this.findById(id);
-            if (!currentRound) {
-                throw new Error('Round not found');
+            // Filter out undefined values and non-allowed fields
+            const updates = Object.keys(updateData)
+                .filter(key => allowedFields.includes(key) && updateData[key] !== undefined)
+                .reduce((obj, key) => {
+                    obj[key] = updateData[key];
+                    return obj;
+                }, {});
+
+            if (Object.keys(updates).length === 0) {
+                throw new Error('No valid fields to update');
             }
 
-            // Check for time conflicts with other rounds in the same event
-            if (start_time || end_time) {
-                const newStartTime = start_time || currentRound.start_time;
-                const newEndTime = end_time || currentRound.end_time;
+            // Build the SET part of the query
+            const setClause = Object.keys(updates)
+                .map(key => `${key} = ?`)
+                .join(', ');
 
-                const conflicts = await this.checkTimeConflicts(
-                    currentRound.event_id,
-                    id,
-                    newStartTime,
-                    newEndTime
-                );
+            const query = `UPDATE event_rounds SET ${setClause} WHERE id = ?`;
 
-                if (conflicts.length > 0) {
-                    throw new Error('Time conflict with another round in this event');
-                }
-            }
+            // Prepare values for the query
+            const values = [...Object.values(updates), id];
 
-            // Build update query
-            let query = 'UPDATE event_rounds SET ';
-            const params = [];
+            await pool.execute(query, values);
 
-            // Add fields to update
-            const fields = {
-                name, description, start_time, end_time,
-                location, capacity, round_type, status
-            };
-
-            for (const [field, value] of Object.entries(fields)) {
-                if (value !== undefined) {
-                    query += `${field} = ?, `;
-                    params.push(value);
-                }
-            }
-
-            // Add updated_at and remove trailing comma
-            query = query.slice(0, -2) + ' WHERE id = ?';
-            params.push(id);
-
-            await pool.execute(query, params);
-
-            // Return updated round
-            return await this.findById(id);
+            return this.findById(id);
         } catch (error) {
             throw error;
         }
@@ -159,11 +122,16 @@ export class EventRound {
 
     /**
      * Delete a round
-     * @param {number} id - Round ID to delete
+     * @param {number} id - Round ID
      * @returns {boolean} Success status
      */
     static async delete(id) {
         try {
+            // First remove all participants, judge assignments, etc.
+            await pool.execute('DELETE FROM round_participants WHERE round_id = ?', [id]);
+            await pool.execute('DELETE FROM judge_assignments WHERE round_id = ?', [id]);
+
+            // Now delete the round
             const [result] = await pool.execute('DELETE FROM event_rounds WHERE id = ?', [id]);
             return result.affectedRows > 0;
         } catch (error) {
@@ -172,193 +140,285 @@ export class EventRound {
     }
 
     /**
-     * Check for time conflicts with other rounds in the same event
-     * @param {number} eventId - Event ID
-     * @param {number|null} excludeRoundId - Round ID to exclude from check (for updates)
-     * @param {string} startTime - Start time in ISO format
-     * @param {string} endTime - End time in ISO format
-     * @returns {Array} Conflicting rounds, empty if no conflicts
-     */
-    static async checkTimeConflicts(eventId, excludeRoundId, startTime, endTime) {
-        try {
-            let query = `
-                SELECT * FROM event_rounds
-                WHERE event_id = ?
-                AND ((start_time <= ? AND end_time >= ?) OR
-                    (start_time <= ? AND end_time >= ?) OR
-                    (start_time >= ? AND end_time <= ?))
-            `;
-
-            const params = [
-                eventId,
-                startTime, startTime,  // Case 1: New start time is within an existing round
-                endTime, endTime,      // Case 2: New end time is within an existing round
-                startTime, endTime     // Case 3: New round completely overlaps an existing round
-            ];
-
-            // Exclude the current round when updating
-            if (excludeRoundId) {
-                query += ' AND id <> ?';
-                params.push(excludeRoundId);
-            }
-
-            const [rows] = await pool.execute(query, params);
-            return rows;
-        } catch (error) {
-            throw error;
-        }
-    }
-
-    /**
-     * Get rounds with upcoming status
-     * @param {Object} options - Filtering options
-     * @returns {Array} Array of upcoming rounds
-     */
-    static async getUpcomingRounds(options = {}) {
-        try {
-            let query = `
-                SELECT r.*, e.title as event_title, e.category
-                FROM event_rounds r
-                JOIN events e ON r.event_id = e.id
-                WHERE r.status = 'upcoming'
-            `;
-
-            const params = [];
-
-            // Add category filter if provided
-            if (options.category) {
-                query += ' AND e.category = ?';
-                params.push(options.category);
-            }
-
-            // Add date range filter if provided
-            if (options.startDate) {
-                query += ' AND r.start_time >= ?';
-                params.push(options.startDate);
-            }
-
-            if (options.endDate) {
-                query += ' AND r.start_time <= ?';
-                params.push(options.endDate);
-            }
-
-            // Add sorting
-            query += ' ORDER BY r.start_time ASC';
-
-            // Add pagination
-            if (options.limit) {
-                query += ' LIMIT ?';
-                params.push(parseInt(options.limit));
-
-                if (options.offset) {
-                    query += ' OFFSET ?';
-                    params.push(parseInt(options.offset));
-                }
-            }
-
-            const [rows] = await pool.execute(query, params);
-            return rows;
-        } catch (error) {
-            throw error;
-        }
-    }
-
-    /**
-     * Register a participant for a round
+     * Add participant to a round
      * @param {number} roundId - Round ID
-     * @param {number} userId - User ID
-     * @returns {Object} Registration result
+     * @param {Object} participantData - Participant data (user_id or team_id)
+     * @returns {Object} Created participation record
      */
-    static async registerParticipant(roundId, userId) {
+    static async addParticipant(roundId, participantData) {
         try {
-            // Check if the round exists and has capacity
-            const round = await this.findById(roundId);
-            if (!round) {
-                throw new Error('Round not found');
+            const { user_id, team_id } = participantData;
+
+            if (!user_id && !team_id) {
+                throw new Error('Either user_id or team_id is required');
             }
 
-            // Check capacity if set
-            if (round.capacity) {
-                const [countResult] = await pool.execute(
-                    'SELECT COUNT(*) as count FROM round_participants WHERE round_id = ?',
-                    [roundId]
-                );
+            // Check if already registered
+            let checkQuery = 'SELECT * FROM round_participants WHERE round_id = ? AND ';
+            let checkParams = [roundId];
 
-                if (countResult[0].count >= round.capacity) {
-                    throw new Error('Round is at full capacity');
-                }
+            if (user_id) {
+                checkQuery += 'user_id = ?';
+                checkParams.push(user_id);
+            } else {
+                checkQuery += 'team_id = ?';
+                checkParams.push(team_id);
             }
 
-            // Register the participant
+            const [existingParticipant] = await pool.execute(checkQuery, checkParams);
+
+            if (existingParticipant.length > 0) {
+                throw new Error('Participant is already registered for this round');
+            }
+
+            // Add participant
             const query = `
-                INSERT INTO round_participants (round_id, user_id)
-                VALUES (?, ?)
+                INSERT INTO round_participants (round_id, user_id, team_id, status)
+                VALUES (?, ?, ?, 'registered')
             `;
 
-            await pool.execute(query, [roundId, userId]);
+            const [result] = await pool.execute(query, [roundId, user_id || null, team_id || null]);
 
-            return { success: true, message: 'Registered successfully for the round' };
-        } catch (error) {
-            // Handle duplicate registration
-            if (error.code === 'ER_DUP_ENTRY') {
-                return { success: false, message: 'Already registered for this round' };
-            }
-            throw error;
-        }
-    }
-
-    /**
-     * Update participant status and score in a round
-     * @param {number} roundId - Round ID
-     * @param {number} userId - User ID
-     * @param {Object} data - Update data (status, score)
-     * @returns {boolean} Success status
-     */
-    static async updateParticipantStatus(roundId, userId, data) {
-        try {
-            const { status, score } = data;
-
-            let query = 'UPDATE round_participants SET ';
-            const params = [];
-
-            if (status !== undefined) {
-                query += 'status = ?, ';
-                params.push(status);
-            }
-
-            if (score !== undefined) {
-                query += 'score = ?, ';
-                params.push(score);
-            }
-
-            // Remove trailing comma and add WHERE clause
-            query = query.slice(0, -2) + ' WHERE round_id = ? AND user_id = ?';
-            params.push(roundId, userId);
-
-            const [result] = await pool.execute(query, params);
-            return result.affectedRows > 0;
+            return {
+                id: result.insertId,
+                round_id: roundId,
+                user_id: user_id || null,
+                team_id: team_id || null,
+                status: 'registered'
+            };
         } catch (error) {
             throw error;
         }
     }
 
     /**
-     * Get participants for a round
+     * Get all participants for a round
      * @param {number} roundId - Round ID
-     * @returns {Array} Array of participants with user details
+     * @returns {Array} Array of participants
      */
     static async getParticipants(roundId) {
         try {
-            const query = `
-                SELECT rp.*, u.name, u.email 
+            const [rows] = await pool.execute(`
+                SELECT rp.*, 
+                       u.name as participant_name, u.email as participant_email,
+                       t.name as team_name
                 FROM round_participants rp
-                JOIN users u ON rp.user_id = u.id
+                LEFT JOIN users u ON rp.user_id = u.id
+                LEFT JOIN teams t ON rp.team_id = t.id
                 WHERE rp.round_id = ?
-                ORDER BY rp.score DESC NULLS LAST
-            `;
+                ORDER BY rp.registered_at
+            `, [roundId]);
 
-            const [rows] = await pool.execute(query, [roundId]);
             return rows;
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    /**
+     * Get participants with scores for a round
+     * @param {number} roundId - Round ID
+     * @returns {Array} Array of participants with scores
+     */
+    static async getParticipantsWithScores(roundId) {
+        try {
+            const [rows] = await pool.execute(`
+                SELECT rp.*, 
+                       rp.score,
+                       rp.technical_score,
+                       rp.presentation_score,
+                       rp.creativity_score,
+                       rp.implementation_score,
+                       rp.judge_comments,
+                       u.name as participant_name, 
+                       u.email as participant_email,
+                       t.name as team_name
+                FROM round_participants rp
+                LEFT JOIN users u ON rp.user_id = u.id
+                LEFT JOIN teams t ON rp.team_id = t.id
+                WHERE rp.round_id = ?
+                ORDER BY rp.score DESC, rp.registered_at
+            `, [roundId]);
+
+            return rows;
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    /**
+     * Update participant status
+     * @param {number} roundId - Round ID
+     * @param {number} participantId - User ID or Team ID
+     * @param {Object} updateData - Data to update
+     * @returns {Object} Updated participant record
+     */
+    static async updateParticipantStatus(roundId, participantId, updateData) {
+        try {
+            const { status } = updateData;
+
+            if (!status) {
+                throw new Error('Status is required');
+            }
+
+            // Validate status
+            const validStatuses = ['registered', 'checked_in', 'absent', 'disqualified', 'advanced', 'eliminated'];
+            if (!validStatuses.includes(status)) {
+                throw new Error('Invalid status');
+            }
+
+            // Check if participant is in this round
+            const [participant] = await pool.execute(
+                'SELECT * FROM round_participants WHERE round_id = ? AND (user_id = ? OR team_id = ?)',
+                [roundId, participantId, participantId]
+            );
+
+            if (participant.length === 0) {
+                throw new Error('Participant not found in this round');
+            }
+
+            // Update status
+            await pool.execute(
+                'UPDATE round_participants SET status = ? WHERE round_id = ? AND (user_id = ? OR team_id = ?)',
+                [status, roundId, participantId, participantId]
+            );
+
+            // Get updated participant data
+            const [updatedParticipant] = await pool.execute(`
+                SELECT rp.*, 
+                       u.name as participant_name, u.email as participant_email,
+                       t.name as team_name
+                FROM round_participants rp
+                LEFT JOIN users u ON rp.user_id = u.id
+                LEFT JOIN teams t ON rp.team_id = t.id
+                WHERE rp.round_id = ? AND (rp.user_id = ? OR rp.team_id = ?)
+            `, [roundId, participantId, participantId]);
+
+            return updatedParticipant[0];
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    /**
+     * Calculate average scores for all participants in a round
+     * @param {number} roundId - Round ID
+     * @returns {boolean} Success status
+     */
+    static async calculateAverageScores(roundId) {
+        try {
+            // Get all participants with scores
+            const [participants] = await pool.execute(`
+                SELECT rp.id, rp.user_id, rp.team_id,
+                       AVG(COALESCE(rp.score, 0)) as average_score
+                FROM round_participants rp
+                JOIN judge_scores js ON js.participant_id = rp.id
+                WHERE rp.round_id = ?
+                GROUP BY rp.id
+            `, [roundId]);
+
+            // Update average scores
+            for (const participant of participants) {
+                await pool.execute(
+                    'UPDATE round_participants SET score = ? WHERE id = ?',
+                    [participant.average_score, participant.id]
+                );
+            }
+
+            return true;
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    /**
+     * Get winners for a round
+     * @param {number} roundId - Round ID
+     * @param {number} limit - Maximum number of winners to return
+     * @returns {Array} Array of winners
+     */
+    static async getWinners(roundId, limit = 3) {
+        try {
+            const [winners] = await pool.execute(`
+                SELECT rp.*, 
+                       u.name as participant_name, u.email as participant_email,
+                       t.name as team_name
+                FROM round_participants rp
+                LEFT JOIN users u ON rp.user_id = u.id
+                LEFT JOIN teams t ON rp.team_id = t.id
+                WHERE rp.round_id = ? AND rp.status = 'advanced'
+                ORDER BY rp.score DESC
+                LIMIT ?
+            `, [roundId, limit]);
+
+            return winners;
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    /**
+     * Advance winners to the next round
+     * @param {number} currentRoundId - Current round ID
+     * @param {number} nextRoundId - Next round ID
+     * @param {Array} winnerIds - Array of winner user IDs or team IDs
+     * @returns {boolean} Success status
+     */
+    static async advanceWinnersToNextRound(currentRoundId, nextRoundId, winnerIds) {
+        try {
+            // Start transaction
+            await pool.execute('START TRANSACTION');
+
+            try {
+                // Get winner details from current round
+                const winners = [];
+                for (const id of winnerIds) {
+                    const [participant] = await pool.execute(`
+                        SELECT user_id, team_id
+                        FROM round_participants
+                        WHERE round_id = ? AND (user_id = ? OR team_id = ?)
+                    `, [currentRoundId, id, id]);
+
+                    if (participant.length > 0) {
+                        winners.push(participant[0]);
+                    }
+                }
+
+                // Add winners to next round
+                for (const winner of winners) {
+                    // Check if already added to next round
+                    const { user_id, team_id } = winner;
+
+                    let checkQuery = 'SELECT * FROM round_participants WHERE round_id = ? AND ';
+                    let checkParams = [nextRoundId];
+
+                    if (user_id) {
+                        checkQuery += 'user_id = ?';
+                        checkParams.push(user_id);
+                    } else {
+                        checkQuery += 'team_id = ?';
+                        checkParams.push(team_id);
+                    }
+
+                    const [existingParticipant] = await pool.execute(checkQuery, checkParams);
+
+                    if (existingParticipant.length === 0) {
+                        // Add to next round
+                        await pool.execute(`
+                            INSERT INTO round_participants (round_id, user_id, team_id, status)
+                            VALUES (?, ?, ?, 'advanced')
+                        `, [nextRoundId, user_id || null, team_id || null]);
+                    }
+                }
+
+                // Commit transaction
+                await pool.execute('COMMIT');
+                return true;
+            } catch (error) {
+                // Rollback on error
+                await pool.execute('ROLLBACK');
+                throw error;
+            }
         } catch (error) {
             throw error;
         }
