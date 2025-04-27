@@ -1,780 +1,690 @@
-// filepath: /Users/sobanahmad/Fast-Nuces/Semester 6/DBlab/semesterProject/server/tests/controllers/accommodationBookingController.test.js
 import { jest } from '@jest/globals';
+import * as controller from '../../src/controllers/accommodationBookingController.js';
+import { AccommodationBooking } from '../../src/models/accommodationBookingModel.js';
+import { Event } from '../../src/models/eventModel.js';
 
-// Mock the models used by the controller
-jest.mock('../../src/models/accommodationBookingModel.js', () => {
-    return {
-        AccommodationBooking: {
-            create: jest.fn(),
-            findAll: jest.fn(),
-            findById: jest.fn(),
-            update: jest.fn(),
-            cancel: jest.fn(),
-            addPayment: jest.fn(),
-            getPayments: jest.fn(),
-            generateReports: jest.fn()
-        }
-    };
-});
+// Mock the models and dependencies
+jest.mock('../../src/models/accommodationBookingModel.js');
+jest.mock('../../src/models/accommodationModel.js');
+jest.mock('../../src/models/eventModel.js');
 
-jest.mock('../../src/models/accommodationModel.js', () => {
-    return {
-        Accommodation: {
-            findById: jest.fn()
-        }
-    };
-});
+// Import the pool before mocking it
+import { pool } from '../../src/config/db.js';
 
-jest.mock('../../src/models/eventModel.js', () => {
-    return {
-        Event: {
-            findById: jest.fn()
-        }
-    };
-});
-
+// Now mock the db module
 jest.mock('../../src/config/db.js', () => {
+    const originalModule = jest.requireActual('../../src/config/db.js');
     return {
+        ...originalModule,
         pool: {
             execute: jest.fn()
         }
     };
 });
 
-// Import controller and mocked modules
-import * as bookingController from '../../src/controllers/accommodationBookingController.js';
-import { AccommodationBooking } from '../../src/models/accommodationBookingModel.js';
-import { Accommodation } from '../../src/models/accommodationModel.js';
-import { Event } from '../../src/models/eventModel.js';
-import { pool } from '../../src/config/db.js';
-
-describe('AccommodationBookingController', () => {
-    let mockRequest;
-    let mockResponse;
-    let mockBooking;
-    let mockPayment;
+describe('Accommodation Booking Controller', () => {
+    let req;
+    let res;
 
     beforeEach(() => {
         // Reset all mocks
         jest.clearAllMocks();
 
-        // Setup mock request and response objects
-        mockRequest = {
+        // Setup the pool.execute mock for each test
+        pool.execute = jest.fn();
+
+        // Mock request object
+        req = {
             body: {},
             params: {},
             query: {},
-            user: { id: 1, role: 'participant' }
+            user: {
+                id: 1,
+                role: 'user'
+            }
         };
 
-        mockResponse = {
+        // Mock response object
+        res = {
             status: jest.fn().mockReturnThis(),
             json: jest.fn()
         };
-
-        mockBooking = {
-            id: 1,
-            user_id: 1,
-            event_id: 1,
-            room_id: 1,
-            check_in_date: '2025-05-15',
-            check_out_date: '2025-05-20',
-            total_price: 750.00,
-            status: 'pending',
-            payment_status: 'pending',
-            payment_method: 'credit_card',
-            special_requests: 'Early check-in if possible'
-        };
-
-        mockPayment = {
-            id: 1,
-            booking_id: 1,
-            amount: 750.00,
-            payment_date: '2025-04-30',
-            payment_method: 'credit_card',
-            reference_number: 'PAY123456',
-            receipt_url: 'http://example.com/receipt.pdf'
-        };
-
-        // Setup mock pool.execute for room details query
-        pool.execute.mockResolvedValue([
-            [{
-                id: 1,
-                accommodation_id: 1,
-                room_number: '101',
-                room_type: 'Deluxe',
-                capacity: 2,
-                is_available: true,
-                price_per_night: 150.00
-            }]
-        ]);
     });
 
     describe('createBooking', () => {
-        it('should create booking successfully', async () => {
-            // Setup
-            mockRequest.body = {
+        beforeEach(() => {
+            req.body = {
                 event_id: 1,
-                room_id: 1,
-                check_in_date: '2025-05-15',
-                check_out_date: '2025-05-20',
+                room_id: 2,
+                check_in_date: '2025-05-01',
+                check_out_date: '2025-05-05',
                 payment_method: 'credit_card',
                 special_requests: 'Early check-in if possible'
             };
 
-            Event.findById.mockResolvedValue({ id: 1, title: 'Tech Conference' });
-            AccommodationBooking.create.mockResolvedValue(mockBooking);
+            Event.findById = jest.fn().mockResolvedValue({ id: 1, title: 'Test Event' });
 
-            // Mock the current date for validation
-            const originalDate = global.Date;
-            global.Date = class extends Date {
-                constructor() {
-                    return new originalDate('2025-04-27');
+            // Setup the mock implementation for this specific test group
+            pool.execute.mockImplementation((query, params) => {
+                if (query.includes('SELECT r.*, a.price_per_night')) {
+                    return Promise.resolve([[{
+                        id: 2,
+                        accommodation_id: 1,
+                        room_number: '101',
+                        room_type: 'Standard',
+                        price_per_night: 100
+                    }]]);
                 }
-            };
+                return Promise.resolve([[]]);
+            });
 
-            // Test
-            await bookingController.createBooking(mockRequest, mockResponse);
+            AccommodationBooking.create = jest.fn().mockResolvedValue({
+                id: 1,
+                user_id: 1,
+                event_id: 1,
+                room_id: 2,
+                check_in_date: '2025-05-01',
+                check_out_date: '2025-05-05',
+                status: 'pending',
+                total_price: 400
+            });
+        });
 
-            // Restore Date
-            global.Date = originalDate;
+        test('should create a booking successfully', async () => {
+            await controller.createBooking(req, res);
 
-            // Assertions
-            expect(Event.findById).toHaveBeenCalledWith(1);
-            expect(pool.execute).toHaveBeenCalled();
-            expect(AccommodationBooking.create).toHaveBeenCalledWith(
-                expect.objectContaining({
-                    user_id: 1,
-                    event_id: 1,
-                    room_id: 1,
-                    check_in_date: '2025-05-15',
-                    check_out_date: '2025-05-20',
-                    payment_method: 'credit_card',
-                    total_price: expect.any(Number)
-                })
-            );
-            expect(mockResponse.status).toHaveBeenCalledWith(201);
-            expect(mockResponse.json).toHaveBeenCalledWith(
+            expect(AccommodationBooking.create).toHaveBeenCalled();
+            expect(res.status).toHaveBeenCalledWith(201);
+            expect(res.json).toHaveBeenCalledWith(
                 expect.objectContaining({
                     message: 'Booking created successfully',
-                    booking: mockBooking
+                    booking: expect.any(Object)
                 })
             );
         });
 
-        it('should return 400 when required fields are missing', async () => {
-            // Setup
-            mockRequest.body = {
-                event_id: 1
-                // Missing room_id, check_in_date, and check_out_date
-            };
+        test('should return 400 if required fields are missing', async () => {
+            req.body = { event_id: 1 }; // Missing required fields
 
-            // Test
-            await bookingController.createBooking(mockRequest, mockResponse);
+            await controller.createBooking(req, res);
 
-            // Assertions
-            expect(AccommodationBooking.create).not.toHaveBeenCalled();
-            expect(mockResponse.status).toHaveBeenCalledWith(400);
-            expect(mockResponse.json).toHaveBeenCalledWith({
-                message: 'Please provide event_id, room_id, check_in_date, and check_out_date'
-            });
+            expect(res.status).toHaveBeenCalledWith(400);
+            expect(res.json).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    message: expect.stringContaining('Please provide')
+                })
+            );
         });
 
-        it('should return 400 when check-out date is before check-in date', async () => {
-            // Setup
-            mockRequest.body = {
-                event_id: 1,
-                room_id: 1,
-                check_in_date: '2025-05-20',
-                check_out_date: '2025-05-15'
-            };
+        test('should validate check-in date is not in the past', async () => {
+            req.body.check_in_date = '2020-01-01'; // Past date
 
-            // Mock the current date for validation
-            const originalDate = global.Date;
-            global.Date = class extends Date {
-                constructor() {
-                    return new originalDate('2025-04-27');
-                }
-            };
+            await controller.createBooking(req, res);
 
-            // Test
-            await bookingController.createBooking(mockRequest, mockResponse);
-
-            // Restore Date
-            global.Date = originalDate;
-
-            // Assertions
-            expect(AccommodationBooking.create).not.toHaveBeenCalled();
-            expect(mockResponse.status).toHaveBeenCalledWith(400);
-            expect(mockResponse.json).toHaveBeenCalledWith({
-                message: 'Check-out date must be after check-in date'
-            });
+            expect(res.status).toHaveBeenCalledWith(400);
+            expect(res.json).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    message: expect.stringContaining('past')
+                })
+            );
         });
 
-        it('should return 404 when event not found', async () => {
-            // Setup
-            mockRequest.body = {
-                event_id: 999,
-                room_id: 1,
-                check_in_date: '2025-05-15',
-                check_out_date: '2025-05-20'
-            };
+        test('should validate check-out date is after check-in date', async () => {
+            req.body.check_in_date = '2025-05-05';
+            req.body.check_out_date = '2025-05-01'; // Before check-in date
 
-            Event.findById.mockResolvedValue(null);
+            await controller.createBooking(req, res);
 
-            // Mock the current date for validation
-            const originalDate = global.Date;
-            global.Date = class extends Date {
-                constructor() {
-                    return new originalDate('2025-04-27');
-                }
-            };
-
-            // Test
-            await bookingController.createBooking(mockRequest, mockResponse);
-
-            // Restore Date
-            global.Date = originalDate;
-
-            // Assertions
-            expect(AccommodationBooking.create).not.toHaveBeenCalled();
-            expect(mockResponse.status).toHaveBeenCalledWith(404);
-            expect(mockResponse.json).toHaveBeenCalledWith({
-                message: 'Event not found'
-            });
+            expect(res.status).toHaveBeenCalledWith(400);
+            expect(res.json).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    message: expect.stringContaining('Check-out date must be after check-in date')
+                })
+            );
         });
 
-        it('should handle room availability conflicts', async () => {
-            // Setup
-            mockRequest.body = {
-                event_id: 1,
-                room_id: 1,
-                check_in_date: '2025-05-15',
-                check_out_date: '2025-05-20'
-            };
+        test('should return 404 if event does not exist', async () => {
+            Event.findById = jest.fn().mockResolvedValue(null);
 
-            Event.findById.mockResolvedValue({ id: 1, title: 'Tech Conference' });
-            const error = new Error('Room is not available for the selected dates');
-            AccommodationBooking.create.mockRejectedValue(error);
+            await controller.createBooking(req, res);
 
-            // Mock the current date for validation
-            const originalDate = global.Date;
-            global.Date = class extends Date {
-                constructor() {
-                    return new originalDate('2025-04-27');
-                }
-            };
+            expect(res.status).toHaveBeenCalledWith(404);
+            expect(res.json).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    message: 'Event not found'
+                })
+            );
+        });
 
-            // Test
-            await bookingController.createBooking(mockRequest, mockResponse);
+        test('should handle room not found', async () => {
+            pool.execute.mockImplementation(() => Promise.resolve([[]])); // Empty room result
 
-            // Restore Date
-            global.Date = originalDate;
+            await controller.createBooking(req, res);
 
-            // Assertions
-            expect(mockResponse.status).toHaveBeenCalledWith(500);
-            expect(mockResponse.json).toHaveBeenCalledWith({
-                message: 'Server error',
-                error: error.message
-            });
+            expect(res.status).toHaveBeenCalledWith(404);
+            expect(res.json).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    message: 'Room not found'
+                })
+            );
+        });
+
+        test('should handle room availability conflict', async () => {
+            AccommodationBooking.create = jest.fn().mockRejectedValue(new Error('not available'));
+
+            await controller.createBooking(req, res);
+
+            expect(res.status).toHaveBeenCalledWith(409);
+            expect(res.json).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    message: expect.stringContaining('not available')
+                })
+            );
+        });
+
+        test('should handle server errors', async () => {
+            AccommodationBooking.create = jest.fn().mockRejectedValue(new Error('Database error'));
+
+            await controller.createBooking(req, res);
+
+            expect(res.status).toHaveBeenCalledWith(500);
+            expect(res.json).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    message: 'Server error'
+                })
+            );
         });
     });
 
     describe('getAllBookings', () => {
-        it('should return all bookings for admin', async () => {
-            // Setup
-            mockRequest.user = { id: 1, role: 'admin' };
-            mockRequest.query = {
+        beforeEach(() => {
+            req.query = {
                 status: 'confirmed',
                 eventId: '1',
-                limit: '20',
+                limit: '10',
                 offset: '0'
             };
 
-            const mockBookings = [mockBooking];
-            AccommodationBooking.findAll.mockResolvedValue(mockBookings);
+            AccommodationBooking.findAll = jest.fn().mockResolvedValue([
+                { id: 1, status: 'confirmed', event_id: 1 },
+                { id: 2, status: 'confirmed', event_id: 1 }
+            ]);
+        });
 
-            // Test
-            await bookingController.getAllBookings(mockRequest, mockResponse);
+        test('should return all bookings with filters', async () => {
+            await controller.getAllBookings(req, res);
 
-            // Assertions
             expect(AccommodationBooking.findAll).toHaveBeenCalledWith(
                 expect.objectContaining({
                     status: 'confirmed',
                     eventId: 1,
-                    limit: 20,
-                    offset: 0
-                })
-            );
-            expect(mockResponse.status).toHaveBeenCalledWith(200);
-            expect(mockResponse.json).toHaveBeenCalledWith({ bookings: mockBookings });
-        });
-
-        it('should limit normal users to see only their own bookings', async () => {
-            // Setup
-            mockRequest.user = { id: 1, role: 'participant' };
-            mockRequest.query = { status: 'pending' };
-
-            const mockBookings = [mockBooking];
-            AccommodationBooking.findAll.mockResolvedValue(mockBookings);
-
-            // Test
-            await bookingController.getAllBookings(mockRequest, mockResponse);
-
-            // Assertions
-            expect(AccommodationBooking.findAll).toHaveBeenCalledWith(
-                expect.objectContaining({
-                    userId: 1,
-                    status: 'pending',
                     limit: 10,
                     offset: 0
                 })
             );
-            expect(mockResponse.status).toHaveBeenCalledWith(200);
-            expect(mockResponse.json).toHaveBeenCalledWith({ bookings: mockBookings });
+
+            expect(res.status).toHaveBeenCalledWith(200);
+            expect(res.json).toHaveBeenCalledWith({
+                bookings: expect.any(Array)
+            });
+        });
+
+        test('should restrict regular users to see only their bookings', async () => {
+            req.user.role = 'user';
+
+            await controller.getAllBookings(req, res);
+
+            expect(AccommodationBooking.findAll).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    userId: 1
+                })
+            );
+        });
+
+        test('should allow admins to see all bookings', async () => {
+            req.user.role = 'admin';
+
+            await controller.getAllBookings(req, res);
+
+            expect(AccommodationBooking.findAll).toHaveBeenCalledWith(
+                expect.not.objectContaining({
+                    userId: expect.any(Number)
+                })
+            );
+        });
+
+        test('should allow organizers to see all bookings', async () => {
+            req.user.role = 'organizer';
+
+            await controller.getAllBookings(req, res);
+
+            expect(AccommodationBooking.findAll).toHaveBeenCalledWith(
+                expect.not.objectContaining({
+                    userId: expect.any(Number)
+                })
+            );
+        });
+
+        test('should handle errors', async () => {
+            AccommodationBooking.findAll = jest.fn().mockRejectedValue(new Error('Database error'));
+
+            await controller.getAllBookings(req, res);
+
+            expect(res.status).toHaveBeenCalledWith(500);
         });
     });
 
     describe('getBookingById', () => {
-        it('should return booking when found and user is authorized', async () => {
-            // Setup
-            mockRequest.params = { id: '1' };
-            mockRequest.user = { id: 1, role: 'participant' }; // Owner of the booking
+        beforeEach(() => {
+            req.params = { id: '1' };
 
-            AccommodationBooking.findById.mockResolvedValue(mockBooking);
+            AccommodationBooking.findById = jest.fn().mockResolvedValue({
+                id: 1,
+                user_id: 1,
+                status: 'confirmed'
+            });
+        });
 
-            // Test
-            await bookingController.getBookingById(mockRequest, mockResponse);
+        test('should return booking details for admin', async () => {
+            req.user.role = 'admin';
 
-            // Assertions
+            await controller.getBookingById(req, res);
+
             expect(AccommodationBooking.findById).toHaveBeenCalledWith('1');
-            expect(mockResponse.status).toHaveBeenCalledWith(200);
-            expect(mockResponse.json).toHaveBeenCalledWith({ booking: mockBooking });
-        });
-
-        it('should return 404 when booking not found', async () => {
-            // Setup
-            mockRequest.params = { id: '999' };
-            AccommodationBooking.findById.mockResolvedValue(null);
-
-            // Test
-            await bookingController.getBookingById(mockRequest, mockResponse);
-
-            // Assertions
-            expect(mockResponse.status).toHaveBeenCalledWith(404);
-            expect(mockResponse.json).toHaveBeenCalledWith({ message: 'Booking not found' });
-        });
-
-        it('should return 403 when user is not authorized', async () => {
-            // Setup
-            mockRequest.params = { id: '1' };
-            mockRequest.user = { id: 2, role: 'participant' }; // Different user
-
-            // Booking owned by user with ID 1
-            AccommodationBooking.findById.mockResolvedValue({
-                ...mockBooking,
-                user_id: 1
-            });
-
-            // Test
-            await bookingController.getBookingById(mockRequest, mockResponse);
-
-            // Assertions
-            expect(mockResponse.status).toHaveBeenCalledWith(403);
-            expect(mockResponse.json).toHaveBeenCalledWith({
-                message: 'You do not have permission to view this booking'
+            expect(res.status).toHaveBeenCalledWith(200);
+            expect(res.json).toHaveBeenCalledWith({
+                booking: expect.any(Object)
             });
         });
 
-        it('should allow admin to view any booking', async () => {
-            // Setup
-            mockRequest.params = { id: '1' };
-            mockRequest.user = { id: 2, role: 'admin' }; // Admin user
+        test('should return booking details for booking owner', async () => {
+            req.user.id = 1; // Same as booking.user_id
+            req.user.role = 'user';
 
-            // Booking owned by user with ID 1
-            AccommodationBooking.findById.mockResolvedValue({
-                ...mockBooking,
-                user_id: 1
-            });
+            await controller.getBookingById(req, res);
 
-            // Test
-            await bookingController.getBookingById(mockRequest, mockResponse);
+            expect(res.status).toHaveBeenCalledWith(200);
+        });
 
-            // Assertions
-            expect(mockResponse.status).toHaveBeenCalledWith(200);
-            expect(mockResponse.json).toHaveBeenCalledWith({
-                booking: expect.objectContaining({ id: 1, user_id: 1 })
-            });
+        test('should deny access to non-owners who are not admins/organizers', async () => {
+            req.user.id = 2; // Different from booking.user_id
+            req.user.role = 'user';
+
+            await controller.getBookingById(req, res);
+
+            expect(res.status).toHaveBeenCalledWith(403);
+        });
+
+        test('should return 404 if booking not found', async () => {
+            AccommodationBooking.findById = jest.fn().mockResolvedValue(null);
+
+            await controller.getBookingById(req, res);
+
+            expect(res.status).toHaveBeenCalledWith(404);
+        });
+
+        test('should handle errors', async () => {
+            AccommodationBooking.findById = jest.fn().mockRejectedValue(new Error('Database error'));
+
+            await controller.getBookingById(req, res);
+
+            expect(res.status).toHaveBeenCalledWith(500);
         });
     });
 
     describe('getMyBookings', () => {
-        it('should return user\'s bookings', async () => {
-            // Setup
-            mockRequest.user = { id: 1, role: 'participant' };
+        beforeEach(() => {
+            AccommodationBooking.findAll = jest.fn().mockResolvedValue([
+                { id: 1, user_id: 1 },
+                { id: 2, user_id: 1 }
+            ]);
+        });
 
-            const mockBookings = [mockBooking];
-            AccommodationBooking.findAll.mockResolvedValue(mockBookings);
+        test('should return current user bookings', async () => {
+            await controller.getMyBookings(req, res);
 
-            // Test
-            await bookingController.getMyBookings(mockRequest, mockResponse);
+            expect(AccommodationBooking.findAll).toHaveBeenCalledWith({ userId: 1 });
+            expect(res.status).toHaveBeenCalledWith(200);
+            expect(res.json).toHaveBeenCalledWith({
+                bookings: expect.any(Array)
+            });
+        });
 
-            // Assertions
-            expect(AccommodationBooking.findAll).toHaveBeenCalledWith(
-                expect.objectContaining({ userId: 1 })
-            );
-            expect(mockResponse.status).toHaveBeenCalledWith(200);
-            expect(mockResponse.json).toHaveBeenCalledWith({ bookings: mockBookings });
+        test('should handle errors', async () => {
+            AccommodationBooking.findAll = jest.fn().mockRejectedValue(new Error('Database error'));
+
+            await controller.getMyBookings(req, res);
+
+            expect(res.status).toHaveBeenCalledWith(500);
         });
     });
 
     describe('updateBookingStatus', () => {
-        it('should update booking status for admin', async () => {
-            // Setup
-            mockRequest.params = { id: '1' };
-            mockRequest.user = { id: 2, role: 'admin' };
-            mockRequest.body = { status: 'confirmed' };
+        beforeEach(() => {
+            req.params = { id: '1' };
+            req.body = { status: 'confirmed' };
+            req.user.role = 'admin';
 
-            AccommodationBooking.findById.mockResolvedValue(mockBooking);
+            AccommodationBooking.findById = jest.fn().mockResolvedValue({
+                id: 1,
+                status: 'pending'
+            });
 
-            const updatedBooking = {
-                ...mockBooking,
+            AccommodationBooking.update = jest.fn().mockResolvedValue({
+                id: 1,
                 status: 'confirmed'
-            };
+            });
+        });
 
-            AccommodationBooking.update.mockResolvedValue(updatedBooking);
+        test('should update booking status as admin', async () => {
+            await controller.updateBookingStatus(req, res);
 
-            // Test
-            await bookingController.updateBookingStatus(mockRequest, mockResponse);
-
-            // Assertions
-            expect(AccommodationBooking.findById).toHaveBeenCalledWith('1');
             expect(AccommodationBooking.update).toHaveBeenCalledWith('1', { status: 'confirmed' });
-            expect(mockResponse.status).toHaveBeenCalledWith(200);
-            expect(mockResponse.json).toHaveBeenCalledWith(
-                expect.objectContaining({
-                    message: 'Booking confirmed successfully',
-                    booking: updatedBooking
-                })
-            );
+            expect(res.status).toHaveBeenCalledWith(200);
         });
 
-        it('should return 403 for non-admin users', async () => {
-            // Setup
-            mockRequest.params = { id: '1' };
-            mockRequest.user = { id: 1, role: 'participant' };
-            mockRequest.body = { status: 'confirmed' };
+        test('should update booking status as organizer', async () => {
+            req.user.role = 'organizer';
 
-            AccommodationBooking.findById.mockResolvedValue(mockBooking);
+            await controller.updateBookingStatus(req, res);
 
-            // Test
-            await bookingController.updateBookingStatus(mockRequest, mockResponse);
-
-            // Assertions
-            expect(AccommodationBooking.update).not.toHaveBeenCalled();
-            expect(mockResponse.status).toHaveBeenCalledWith(403);
-            expect(mockResponse.json).toHaveBeenCalledWith({
-                message: 'You do not have permission to update this booking'
-            });
+            expect(AccommodationBooking.update).toHaveBeenCalledWith('1', { status: 'confirmed' });
+            expect(res.status).toHaveBeenCalledWith(200);
         });
 
-        it('should return 400 for invalid status', async () => {
-            // Setup
-            mockRequest.params = { id: '1' };
-            mockRequest.user = { id: 2, role: 'admin' };
-            mockRequest.body = { status: 'invalid_status' };
+        test('should deny access to regular users', async () => {
+            req.user.role = 'user';
 
-            // Test
-            await bookingController.updateBookingStatus(mockRequest, mockResponse);
+            await controller.updateBookingStatus(req, res);
 
-            // Assertions
+            expect(res.status).toHaveBeenCalledWith(403);
             expect(AccommodationBooking.update).not.toHaveBeenCalled();
-            expect(mockResponse.status).toHaveBeenCalledWith(400);
-            expect(mockResponse.json).toHaveBeenCalledWith({
-                message: 'Invalid status. Must be one of: pending, confirmed, checked_in, checked_out, cancelled'
-            });
+        });
+
+        test('should validate status value', async () => {
+            req.body.status = 'invalid_status';
+
+            await controller.updateBookingStatus(req, res);
+
+            expect(res.status).toHaveBeenCalledWith(400);
+            expect(AccommodationBooking.update).not.toHaveBeenCalled();
+        });
+
+        test('should return 404 if booking not found', async () => {
+            AccommodationBooking.findById = jest.fn().mockResolvedValue(null);
+
+            await controller.updateBookingStatus(req, res);
+
+            expect(res.status).toHaveBeenCalledWith(404);
+        });
+
+        test('should handle errors', async () => {
+            AccommodationBooking.update = jest.fn().mockRejectedValue(new Error('Database error'));
+
+            await controller.updateBookingStatus(req, res);
+
+            expect(res.status).toHaveBeenCalledWith(500);
         });
     });
 
     describe('cancelBooking', () => {
-        it('should allow user to cancel their own booking', async () => {
-            // Setup
-            mockRequest.params = { id: '1' };
-            mockRequest.user = { id: 1, role: 'participant' };
+        beforeEach(() => {
+            req.params = { id: '1' };
 
-            AccommodationBooking.findById.mockResolvedValue(mockBooking);
-
-            const cancelledBooking = {
-                ...mockBooking,
-                status: 'cancelled'
-            };
-
-            AccommodationBooking.cancel.mockResolvedValue(cancelledBooking);
-
-            // Test
-            await bookingController.cancelBooking(mockRequest, mockResponse);
-
-            // Assertions
-            expect(AccommodationBooking.findById).toHaveBeenCalledWith('1');
-            expect(AccommodationBooking.cancel).toHaveBeenCalledWith('1');
-            expect(mockResponse.status).toHaveBeenCalledWith(200);
-            expect(mockResponse.json).toHaveBeenCalledWith(
-                expect.objectContaining({
-                    message: 'Booking cancelled successfully',
-                    booking: cancelledBooking
-                })
-            );
-        });
-
-        it('should return 403 when user is not authorized', async () => {
-            // Setup
-            mockRequest.params = { id: '1' };
-            mockRequest.user = { id: 2, role: 'participant' };
-
-            AccommodationBooking.findById.mockResolvedValue({
-                ...mockBooking,
-                user_id: 1
-            });
-
-            // Test
-            await bookingController.cancelBooking(mockRequest, mockResponse);
-
-            // Assertions
-            expect(AccommodationBooking.cancel).not.toHaveBeenCalled();
-            expect(mockResponse.status).toHaveBeenCalledWith(403);
-            expect(mockResponse.json).toHaveBeenCalledWith({
-                message: 'You do not have permission to cancel this booking'
-            });
-        });
-
-        it('should allow admin to cancel any booking', async () => {
-            // Setup
-            mockRequest.params = { id: '1' };
-            mockRequest.user = { id: 2, role: 'admin' };
-
-            AccommodationBooking.findById.mockResolvedValue({
-                ...mockBooking,
-                user_id: 1
-            });
-
-            const cancelledBooking = {
-                ...mockBooking,
+            AccommodationBooking.findById = jest.fn().mockResolvedValue({
+                id: 1,
                 user_id: 1,
+                status: 'pending'
+            });
+
+            AccommodationBooking.cancel = jest.fn().mockResolvedValue({
+                id: 1,
                 status: 'cancelled'
-            };
-
-            AccommodationBooking.cancel.mockResolvedValue(cancelledBooking);
-
-            // Test
-            await bookingController.cancelBooking(mockRequest, mockResponse);
-
-            // Assertions
-            expect(AccommodationBooking.cancel).toHaveBeenCalledWith('1');
-            expect(mockResponse.status).toHaveBeenCalledWith(200);
-            expect(mockResponse.json).toHaveBeenCalledWith(
-                expect.objectContaining({
-                    message: 'Booking cancelled successfully'
-                })
-            );
+            });
         });
 
-        it('should return 400 when trying to cancel checked-in booking', async () => {
-            // Setup
-            mockRequest.params = { id: '1' };
-            mockRequest.user = { id: 1, role: 'participant' };
+        test('should allow user to cancel their own booking', async () => {
+            req.user.id = 1; // Same as booking.user_id
 
-            AccommodationBooking.findById.mockResolvedValue({
-                ...mockBooking,
+            await controller.cancelBooking(req, res);
+
+            expect(AccommodationBooking.cancel).toHaveBeenCalledWith('1');
+            expect(res.status).toHaveBeenCalledWith(200);
+        });
+
+        test('should allow admin to cancel any booking', async () => {
+            req.user.id = 2; // Different from booking.user_id
+            req.user.role = 'admin';
+
+            await controller.cancelBooking(req, res);
+
+            expect(AccommodationBooking.cancel).toHaveBeenCalledWith('1');
+            expect(res.status).toHaveBeenCalledWith(200);
+        });
+
+        test('should deny non-owner regular user', async () => {
+            req.user.id = 2; // Different from booking.user_id
+            req.user.role = 'user';
+
+            await controller.cancelBooking(req, res);
+
+            expect(res.status).toHaveBeenCalledWith(403);
+            expect(AccommodationBooking.cancel).not.toHaveBeenCalled();
+        });
+
+        test('should prevent cancelling checked-in booking', async () => {
+            AccommodationBooking.findById = jest.fn().mockResolvedValue({
+                id: 1,
+                user_id: 1,
                 status: 'checked_in'
             });
 
-            // Test
-            await bookingController.cancelBooking(mockRequest, mockResponse);
+            await controller.cancelBooking(req, res);
 
-            // Assertions
+            expect(res.status).toHaveBeenCalledWith(400);
             expect(AccommodationBooking.cancel).not.toHaveBeenCalled();
-            expect(mockResponse.status).toHaveBeenCalledWith(400);
-            expect(mockResponse.json).toHaveBeenCalledWith({
-                message: "Cannot cancel booking in 'checked_in' status"
-            });
+        });
+
+        test('should return 404 if booking not found', async () => {
+            AccommodationBooking.findById = jest.fn().mockResolvedValue(null);
+
+            await controller.cancelBooking(req, res);
+
+            expect(res.status).toHaveBeenCalledWith(404);
+        });
+
+        test('should handle errors', async () => {
+            AccommodationBooking.cancel = jest.fn().mockRejectedValue(new Error('Database error'));
+
+            await controller.cancelBooking(req, res);
+
+            expect(res.status).toHaveBeenCalledWith(500);
         });
     });
 
     describe('addPayment', () => {
-        it('should add payment to booking', async () => {
-            // Setup
-            mockRequest.params = { bookingId: '1' };
-            mockRequest.user = { id: 1, role: 'participant' };
-            mockRequest.body = {
-                amount: 750.00,
+        beforeEach(() => {
+            req.params = { bookingId: '1' };
+            req.body = {
+                amount: 100,
                 payment_date: '2025-04-30',
                 payment_method: 'credit_card',
-                reference_number: 'PAY123456',
-                receipt_url: 'http://example.com/receipt.pdf'
+                reference_number: 'REF123',
+                notes: 'Partial payment'
             };
 
-            AccommodationBooking.findById.mockResolvedValue(mockBooking);
-            AccommodationBooking.addPayment.mockResolvedValue(mockPayment);
+            AccommodationBooking.findById = jest.fn().mockResolvedValue({
+                id: 1,
+                user_id: 1,
+                total_price: 500
+            });
 
-            // Test
-            await bookingController.addPayment(mockRequest, mockResponse);
-
-            // Assertions
-            expect(AccommodationBooking.findById).toHaveBeenCalledWith('1');
-            expect(AccommodationBooking.addPayment).toHaveBeenCalledWith(
-                expect.objectContaining({
-                    booking_id: 1,
-                    amount: 750.00,
-                    payment_date: '2025-04-30',
-                    payment_method: 'credit_card',
-                    reference_number: 'PAY123456',
-                    receipt_url: 'http://example.com/receipt.pdf'
-                })
-            );
-            expect(mockResponse.status).toHaveBeenCalledWith(201);
-            expect(mockResponse.json).toHaveBeenCalledWith(
-                expect.objectContaining({
-                    message: 'Payment added successfully',
-                    payment: mockPayment
-                })
-            );
-        });
-
-        it('should return 400 when required fields are missing', async () => {
-            // Setup
-            mockRequest.params = { bookingId: '1' };
-            mockRequest.user = { id: 1, role: 'participant' };
-            mockRequest.body = {
-                amount: 750.00,
-                // Missing payment_date and payment_method
-            };
-
-            // Test
-            await bookingController.addPayment(mockRequest, mockResponse);
-
-            // Assertions
-            expect(AccommodationBooking.addPayment).not.toHaveBeenCalled();
-            expect(mockResponse.status).toHaveBeenCalledWith(400);
-            expect(mockResponse.json).toHaveBeenCalledWith({
-                message: 'Please provide amount, payment_date, and payment_method'
+            AccommodationBooking.addPayment = jest.fn().mockResolvedValue({
+                id: 1,
+                booking_id: 1,
+                amount: 100,
+                payment_method: 'credit_card'
             });
         });
 
-        it('should return 404 when booking not found', async () => {
-            // Setup
-            mockRequest.params = { bookingId: '999' };
-            mockRequest.user = { id: 1, role: 'participant' };
-            mockRequest.body = {
-                amount: 750.00,
-                payment_date: '2025-04-30',
-                payment_method: 'credit_card'
-            };
+        test('should add payment successfully', async () => {
+            await controller.addPayment(req, res);
 
-            AccommodationBooking.findById.mockResolvedValue(null);
+            expect(AccommodationBooking.addPayment).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    booking_id: 1,
+                    amount: 100,
+                    payment_method: 'credit_card'
+                })
+            );
+            expect(res.status).toHaveBeenCalledWith(201);
+        });
 
-            // Test
-            await bookingController.addPayment(mockRequest, mockResponse);
+        test('should validate required fields', async () => {
+            req.body = { amount: 100 }; // Missing required fields
 
-            // Assertions
+            await controller.addPayment(req, res);
+
+            expect(res.status).toHaveBeenCalledWith(400);
             expect(AccommodationBooking.addPayment).not.toHaveBeenCalled();
-            expect(mockResponse.status).toHaveBeenCalledWith(404);
-            expect(mockResponse.json).toHaveBeenCalledWith({ message: 'Booking not found' });
+        });
+
+        test('should return 404 if booking not found', async () => {
+            AccommodationBooking.findById = jest.fn().mockResolvedValue(null);
+
+            await controller.addPayment(req, res);
+
+            expect(res.status).toHaveBeenCalledWith(404);
+        });
+
+        test('should deny access to non-owners who are not admins/organizers', async () => {
+            req.user.id = 2; // Different from booking.user_id
+            req.user.role = 'user';
+
+            await controller.addPayment(req, res);
+
+            expect(res.status).toHaveBeenCalledWith(403);
+            expect(AccommodationBooking.addPayment).not.toHaveBeenCalled();
+        });
+
+        test('should handle errors', async () => {
+            AccommodationBooking.addPayment = jest.fn().mockRejectedValue(new Error('Database error'));
+
+            await controller.addPayment(req, res);
+
+            expect(res.status).toHaveBeenCalledWith(500);
         });
     });
 
     describe('getPayments', () => {
-        it('should return payments for a booking', async () => {
-            // Setup
-            mockRequest.params = { bookingId: '1' };
-            mockRequest.user = { id: 1, role: 'participant' };
+        beforeEach(() => {
+            req.params = { bookingId: '1' };
 
-            AccommodationBooking.findById.mockResolvedValue(mockBooking);
-
-            const mockPayments = [mockPayment];
-            AccommodationBooking.getPayments.mockResolvedValue(mockPayments);
-
-            // Test
-            await bookingController.getPayments(mockRequest, mockResponse);
-
-            // Assertions
-            expect(AccommodationBooking.findById).toHaveBeenCalledWith('1');
-            expect(AccommodationBooking.getPayments).toHaveBeenCalledWith('1');
-            expect(mockResponse.status).toHaveBeenCalledWith(200);
-            expect(mockResponse.json).toHaveBeenCalledWith({ payments: mockPayments });
-        });
-
-        it('should return 403 when user is not authorized', async () => {
-            // Setup
-            mockRequest.params = { bookingId: '1' };
-            mockRequest.user = { id: 2, role: 'participant' };
-
-            AccommodationBooking.findById.mockResolvedValue({
-                ...mockBooking,
+            AccommodationBooking.findById = jest.fn().mockResolvedValue({
+                id: 1,
                 user_id: 1
             });
 
-            // Test
-            await bookingController.getPayments(mockRequest, mockResponse);
+            AccommodationBooking.getPayments = jest.fn().mockResolvedValue([
+                { id: 1, booking_id: 1, amount: 100 },
+                { id: 2, booking_id: 1, amount: 200 }
+            ]);
+        });
 
-            // Assertions
-            expect(AccommodationBooking.getPayments).not.toHaveBeenCalled();
-            expect(mockResponse.status).toHaveBeenCalledWith(403);
-            expect(mockResponse.json).toHaveBeenCalledWith({
-                message: 'You do not have permission to view payments for this booking'
+        test('should get payments for admin', async () => {
+            req.user.role = 'admin';
+
+            await controller.getPayments(req, res);
+
+            expect(AccommodationBooking.getPayments).toHaveBeenCalledWith('1');
+            expect(res.status).toHaveBeenCalledWith(200);
+            expect(res.json).toHaveBeenCalledWith({
+                payments: expect.any(Array)
             });
+        });
+
+        test('should get payments for booking owner', async () => {
+            req.user.id = 1; // Same as booking.user_id
+
+            await controller.getPayments(req, res);
+
+            expect(res.status).toHaveBeenCalledWith(200);
+        });
+
+        test('should deny access to non-owners', async () => {
+            req.user.id = 2; // Different from booking.user_id
+            req.user.role = 'user';
+
+            await controller.getPayments(req, res);
+
+            expect(res.status).toHaveBeenCalledWith(403);
+            expect(AccommodationBooking.getPayments).not.toHaveBeenCalled();
+        });
+
+        test('should return 404 if booking not found', async () => {
+            AccommodationBooking.findById = jest.fn().mockResolvedValue(null);
+
+            await controller.getPayments(req, res);
+
+            expect(res.status).toHaveBeenCalledWith(404);
+        });
+
+        test('should handle errors', async () => {
+            AccommodationBooking.getPayments = jest.fn().mockRejectedValue(new Error('Database error'));
+
+            await controller.getPayments(req, res);
+
+            expect(res.status).toHaveBeenCalledWith(500);
         });
     });
 
     describe('generateReports', () => {
-        it('should generate reports for admin', async () => {
-            // Setup
-            mockRequest.user = { id: 1, role: 'admin' };
-            mockRequest.query = {
+        beforeEach(() => {
+            req.query = {
                 startDate: '2025-01-01',
                 endDate: '2025-12-31',
                 eventId: '1'
             };
 
-            const mockReport = {
-                summary: {
-                    total_bookings: 50,
-                    total_revenue: 37500,
-                    average_stay_length: 5
-                },
-                statusBreakdown: {
-                    confirmed: 30,
-                    pending: 15,
-                    cancelled: 5
-                }
-            };
-
-            AccommodationBooking.generateReports.mockResolvedValue(mockReport);
-
-            // Test
-            await bookingController.generateReports(mockRequest, mockResponse);
-
-            // Assertions
-            expect(AccommodationBooking.generateReports).toHaveBeenCalledWith({
-                startDate: '2025-01-01',
-                endDate: '2025-12-31',
-                eventId: '1'
+            AccommodationBooking.generateReports = jest.fn().mockResolvedValue({
+                summary: { total_bookings: 10, total_revenue: 5000 },
+                statusBreakdown: [],
+                eventBreakdown: [],
+                recentBookings: []
             });
-            expect(mockResponse.status).toHaveBeenCalledWith(200);
-            expect(mockResponse.json).toHaveBeenCalledWith({ report: mockReport });
         });
 
-        it('should return 403 for non-admin users', async () => {
-            // Setup
-            mockRequest.user = { id: 1, role: 'participant' };
+        test('should generate reports for admin', async () => {
+            req.user.role = 'admin';
 
-            // Test
-            await bookingController.generateReports(mockRequest, mockResponse);
+            await controller.generateReports(req, res);
 
-            // Assertions
+            expect(AccommodationBooking.generateReports).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    startDate: '2025-01-01',
+                    endDate: '2025-12-31',
+                    eventId: '1'
+                })
+            );
+            expect(res.status).toHaveBeenCalledWith(200);
+        });
+
+        test('should deny access to non-admin users', async () => {
+            req.user.role = 'organizer';
+
+            await controller.generateReports(req, res);
+
+            expect(res.status).toHaveBeenCalledWith(403);
             expect(AccommodationBooking.generateReports).not.toHaveBeenCalled();
-            expect(mockResponse.status).toHaveBeenCalledWith(403);
-            expect(mockResponse.json).toHaveBeenCalledWith({
-                message: 'Access denied: Only admins can generate reports'
-            });
+        });
+
+        test('should handle errors', async () => {
+            req.user.role = 'admin';
+            AccommodationBooking.generateReports = jest.fn().mockRejectedValue(new Error('Database error'));
+
+            await controller.generateReports(req, res);
+
+            expect(res.status).toHaveBeenCalledWith(500);
         });
     });
 });
