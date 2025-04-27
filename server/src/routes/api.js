@@ -10,6 +10,7 @@ import sponsorProfileRoutes from './sponsorProfileRoutes.js';
 import sponsorshipRoutes from './sponsorshipRoutes.js';
 import accommodationRoutes from './accommodationRoutes.js';
 import paymentRoutes from './paymentRoutes.js';
+import analyticsRoutes from './analyticsRoutes.js';
 
 const router = express.Router();
 
@@ -36,5 +37,8 @@ router.use('/accommodations', accommodationRoutes);
 
 // Payment management routes
 router.use('/payments', paymentRoutes);
+
+// Analytics and reporting routes
+router.use('/analytics', analyticsRoutes);
 
 export default router;
