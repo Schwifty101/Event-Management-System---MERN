@@ -330,101 +330,90 @@ export class AccommodationBooking {
      */
     static async generateReports(options = {}) {
         try {
-            // Start transaction for consistent report data
-            await pool.execute('START TRANSACTION');
+            // Revenue summary
+            let revenueQuery = `
+                SELECT 
+                    COUNT(id) as total_bookings,
+                    SUM(total_price) as total_revenue,
+                    SUM(CASE WHEN payment_status = 'completed' THEN total_price ELSE 0 END) as collected_revenue,
+                    SUM(CASE WHEN payment_status != 'completed' THEN total_price ELSE 0 END) as pending_revenue
+                FROM accommodation_bookings
+                WHERE status != 'cancelled'
+            `;
 
-            try {
-                // Revenue summary
-                let revenueQuery = `
-                    SELECT 
-                        COUNT(id) as total_bookings,
-                        SUM(total_price) as total_revenue,
-                        SUM(CASE WHEN payment_status = 'completed' THEN total_price ELSE 0 END) as collected_revenue,
-                        SUM(CASE WHEN payment_status != 'completed' THEN total_price ELSE 0 END) as pending_revenue
-                    FROM accommodation_bookings
-                    WHERE status != 'cancelled'
-                `;
+            const revenueParams = [];
 
-                const revenueParams = [];
+            // Booking status breakdown
+            let statusQuery = `
+                SELECT 
+                    status,
+                    COUNT(id) as count,
+                    SUM(total_price) as revenue
+                FROM accommodation_bookings
+                GROUP BY status
+                ORDER BY count DESC
+            `;
 
-                // Booking status breakdown
-                let statusQuery = `
-                    SELECT 
-                        status,
-                        COUNT(id) as count,
-                        SUM(total_price) as revenue
-                    FROM accommodation_bookings
-                    GROUP BY status
-                    ORDER BY count DESC
-                `;
+            // Event breakdown
+            let eventQuery = `
+                SELECT 
+                    e.id, e.title as event_name,
+                    COUNT(b.id) as booking_count,
+                    SUM(b.total_price) as total_revenue
+                FROM accommodation_bookings b
+                JOIN events e ON b.event_id = e.id
+                WHERE b.status != 'cancelled'
+                GROUP BY e.id
+                ORDER BY total_revenue DESC
+            `;
 
-                // Event breakdown
-                let eventQuery = `
-                    SELECT 
-                        e.id, e.title as event_name,
-                        COUNT(b.id) as booking_count,
-                        SUM(b.total_price) as total_revenue
-                    FROM accommodation_bookings b
-                    JOIN events e ON b.event_id = e.id
-                    WHERE b.status != 'cancelled'
-                    GROUP BY e.id
-                    ORDER BY total_revenue DESC
-                `;
-
-                // Add filters to queries
-                if (options.startDate) {
-                    const dateFilter = ' AND check_in_date >= ?';
-                    revenueQuery += dateFilter;
-                    revenueParams.push(options.startDate);
-                }
-
-                if (options.endDate) {
-                    const dateFilter = ' AND check_out_date <= ?';
-                    revenueQuery += dateFilter;
-                    revenueParams.push(options.endDate);
-                }
-
-                if (options.eventId) {
-                    const eventFilter = ' AND event_id = ?';
-                    revenueQuery += eventFilter;
-                    revenueParams.push(options.eventId);
-                }
-
-                // Execute queries
-                const [revenueSummary] = await pool.execute(revenueQuery, revenueParams);
-                const [statusBreakdown] = await pool.execute(statusQuery);
-                const [eventBreakdown] = await pool.execute(eventQuery);
-
-                // Recent bookings
-                const [recentBookings] = await pool.execute(`
-                    SELECT b.id, b.check_in_date, b.check_out_date, b.total_price, b.status, b.payment_status,
-                           u.name as user_name,
-                           e.title as event_title,
-                           a.name as accommodation_name,
-                           r.room_number, r.room_type
-                    FROM accommodation_bookings b
-                    JOIN users u ON b.user_id = u.id
-                    JOIN events e ON b.event_id = e.id
-                    JOIN accommodation_rooms r ON b.room_id = r.id
-                    JOIN accommodations a ON r.accommodation_id = a.id
-                    ORDER BY b.created_at DESC
-                    LIMIT 5
-                `);
-
-                await pool.execute('COMMIT');
-
-                // Compile the report
-                return {
-                    summary: revenueSummary[0],
-                    statusBreakdown,
-                    eventBreakdown,
-                    recentBookings
-                };
-
-            } catch (error) {
-                await pool.execute('ROLLBACK');
-                throw error;
+            // Add filters to queries
+            if (options.startDate) {
+                const dateFilter = ' AND check_in_date >= ?';
+                revenueQuery += dateFilter;
+                revenueParams.push(options.startDate);
             }
+
+            if (options.endDate) {
+                const dateFilter = ' AND check_out_date <= ?';
+                revenueQuery += dateFilter;
+                revenueParams.push(options.endDate);
+            }
+
+            if (options.eventId) {
+                const eventFilter = ' AND event_id = ?';
+                revenueQuery += eventFilter;
+                revenueParams.push(options.eventId);
+            }
+
+            // Execute queries without transactions
+            const [revenueSummary] = await pool.execute(revenueQuery, revenueParams);
+            const [statusBreakdown] = await pool.execute(statusQuery);
+            const [eventBreakdown] = await pool.execute(eventQuery);
+
+            // Recent bookings
+            const [recentBookings] = await pool.execute(`
+                SELECT b.id, b.check_in_date, b.check_out_date, b.total_price, b.status, b.payment_status,
+                       u.name as user_name,
+                       e.title as event_title,
+                       a.name as accommodation_name,
+                       r.room_number, r.room_type
+                FROM accommodation_bookings b
+                JOIN users u ON b.user_id = u.id
+                JOIN events e ON b.event_id = e.id
+                JOIN accommodation_rooms r ON b.room_id = r.id
+                JOIN accommodations a ON r.accommodation_id = a.id
+                ORDER BY b.created_at DESC
+                LIMIT 5
+            `);
+
+            // Compile the report
+            return {
+                summary: revenueSummary[0],
+                statusBreakdown,
+                eventBreakdown,
+                recentBookings
+            };
         } catch (error) {
             throw error;
         }

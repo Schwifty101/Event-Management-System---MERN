@@ -127,12 +127,12 @@ export const getDashboardMetrics = async (req, res) => {
             revenueResult,
             accommodationResult
         ] = await Promise.all([
-            pool.query('SELECT COUNT(*) as count FROM users'),
-            pool.query('SELECT COUNT(*) as count FROM events'),
-            pool.query('SELECT COUNT(*) as count FROM events WHERE status = "active"'),
-            pool.query('SELECT COUNT(*) as count FROM teams'),
-            pool.query('SELECT SUM(amount) as total FROM payments'),
-            pool.query('SELECT COUNT(*) as count FROM accommodation_bookings')
+            pool.execute('SELECT COUNT(*) as count FROM users'),
+            pool.execute('SELECT COUNT(*) as count FROM events'),
+            pool.execute('SELECT COUNT(*) as count FROM events WHERE status = "active"'),
+            pool.execute('SELECT COUNT(*) as count FROM teams'),
+            pool.execute('SELECT SUM(amount) as total FROM payments'),
+            pool.execute('SELECT COUNT(*) as count FROM accommodation_bookings')
         ]);
 
         const dashboardData = {

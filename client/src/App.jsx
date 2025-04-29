@@ -14,6 +14,11 @@ import UserManagement from './components/admin/UserManagement';
 import RolePermissionManagement from './components/admin/RolePermissionManagement';
 import AnalyticsDashboard from './components/admin/AnalyticsDashboard';
 
+// Import Event Management components
+import EventManagement from './components/events/EventManagement';
+import EventRoundsManagement from './components/events/EventRoundsManagement';
+import JudgingPanel from './components/events/JudgingPanel';
+
 // Create a theme
 const theme = createTheme({
     palette: {
@@ -28,24 +33,24 @@ const theme = createTheme({
         },
     },
     typography: {
-        fontFamily: '"Roboto", "Helvetica", "Arial", sans-serif',
-        h1: {
-            fontWeight: 500,
-        },
+        fontFamily: [
+            '-apple-system',
+            'BlinkMacSystemFont',
+            '"Segoe UI"',
+            'Roboto',
+            '"Helvetica Neue"',
+            'Arial',
+            'sans-serif',
+            '"Apple Color Emoji"',
+            '"Segoe UI Emoji"',
+            '"Segoe UI Symbol"',
+        ].join(','),
     },
     components: {
-        MuiButton: {
+        MuiCssBaseline: {
             styleOverrides: {
-                root: {
-                    textTransform: 'none',
-                    borderRadius: 8,
-                },
-            },
-        },
-        MuiPaper: {
-            styleOverrides: {
-                root: {
-                    borderRadius: 8,
+                body: {
+                    backgroundColor: '#f5f5f5',
                 },
             },
         },
@@ -76,20 +81,21 @@ function App() {
                                     <Route path="/admin/users" element={<UserManagement />} />
                                     <Route path="/admin/permissions" element={<RolePermissionManagement />} />
                                     <Route path="/admin/analytics" element={<AnalyticsDashboard />} />
-                                    <Route path="/admin/events" element={<div>Manage Events</div>} />
+                                    <Route path="/admin/events" element={<EventManagement />} />
                                     <Route path="/admin/teams" element={<div>Manage Teams</div>} />
                                 </Route>
 
                                 {/* Organizer routes */}
                                 <Route element={<RoleBasedRoute allowedRoles={['organizer']} />}>
                                     <Route path="/organizer/dashboard" element={<div>Organizer Dashboard</div>} />
-                                    <Route path="/organizer/events" element={<div>Event Management</div>} />
+                                    <Route path="/organizer/events" element={<EventManagement />} />
                                 </Route>
 
                                 {/* Judge routes */}
                                 <Route element={<RoleBasedRoute allowedRoles={['judge']} />}>
                                     <Route path="/judge/dashboard" element={<div>Judge Dashboard</div>} />
                                     <Route path="/judge/events" element={<div>Assigned Events</div>} />
+                                    <Route path="/judge/rounds/:roundId/scoring" element={<JudgingPanel />} />
                                 </Route>
 
                                 {/* Sponsor routes */}
@@ -104,6 +110,15 @@ function App() {
                                     <Route path="/participant/events" element={<div>Browse Events</div>} />
                                     <Route path="/participant/team" element={<div>Team Management</div>} />
                                 </Route>
+
+                                {/* Common Event Management routes for admin and organizers */}
+                                <Route element={<RoleBasedRoute allowedRoles={['admin', 'organizer']} />}>
+                                    <Route path="/events/:eventId/rounds" element={<EventRoundsManagement />} />
+                                </Route>
+
+                                {/* Routes accessible to all authenticated users */}
+                                <Route path="/events" element={<div>All Events</div>} />
+                                <Route path="/events/:eventId" element={<div>Event Details</div>} />
 
                                 {/* Common protected routes */}
                                 <Route path="/profile" element={<div>User Profile</div>} />

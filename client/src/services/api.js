@@ -127,6 +127,7 @@ export const analyticsService = {
     getEventStats: () => api.get('/analytics/events'),
     getTeamStats: () => api.get('/analytics/teams'),
     getSponsorshipStats: () => api.get('/analytics/sponsorships'),
+    getDashboardMetrics: () => api.get('/analytics/dashboard'),
 };
 
 export default api;

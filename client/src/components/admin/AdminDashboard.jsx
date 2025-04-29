@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Grid, Paper, Typography, Box, Card, CardContent, CardHeader, CircularProgress } from '@mui/material';
+import { Grid, Paper, Typography, Box, Card, CardContent, CardHeader, CircularProgress, Alert } from '@mui/material';
 import { EventAvailable, Group, Payments, Hotel, Analytics } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import { analyticsService } from '../../services/api';
 
 const DashboardCard = ({ title, value, icon, color, loading, onClick }) => {
     return (
@@ -51,6 +51,7 @@ const DashboardCard = ({ title, value, icon, color, loading, onClick }) => {
 const AdminDashboard = () => {
     const navigate = useNavigate();
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
     const [dashboardData, setDashboardData] = useState({
         totalUsers: 0,
         totalEvents: 0,
@@ -64,17 +65,29 @@ const AdminDashboard = () => {
         const fetchDashboardData = async () => {
             try {
                 setLoading(true);
-                const response = await axios.get('/api/analytics/dashboard', {
-                    headers: {
-                        Authorization: `Bearer ${localStorage.getItem('token')}`
-                    }
-                });
-
-                setDashboardData(response.data);
+                setError(null);
+                // For development, if the API is not ready, use mock data
+                try {
+                    const response = await analyticsService.getDashboardMetrics();
+                    setDashboardData(response.data);
+                } catch (apiError) {
+                    console.error('Error fetching dashboard data:', apiError);
+                    // Use mock data if API fails
+                    setDashboardData({
+                        totalUsers: 248,
+                        totalEvents: 15,
+                        activeEvents: 8,
+                        totalRevenue: 24750,
+                        totalTeams: 42,
+                        accommodationBookings: 78
+                    });
+                    setError('Could not connect to the dashboard API. Showing sample data.');
+                }
                 setLoading(false);
-            } catch (error) {
-                console.error('Error fetching dashboard data:', error);
+            } catch (err) {
+                console.error('Error in dashboard component:', err);
                 setLoading(false);
+                setError('Failed to load dashboard data');
             }
         };
 
@@ -85,9 +98,15 @@ const AdminDashboard = () => {
         <Box sx={{ p: 3 }}>
             <Typography variant="h4" sx={{ mb: 4 }}>Admin Dashboard</Typography>
 
+            {error && (
+                <Alert severity="warning" sx={{ mb: 3 }}>
+                    {error}
+                </Alert>
+            )}
+
             <Grid container spacing={3}>
                 {/* Key metric cards */}
-                <Grid item xs={12} md={4}>
+                <Grid item xs={12} sm={6} lg={4}>
                     <DashboardCard
                         title="Total Users"
                         value={dashboardData.totalUsers}
@@ -97,7 +116,7 @@ const AdminDashboard = () => {
                         onClick={() => navigate('/admin/users')}
                     />
                 </Grid>
-                <Grid item xs={12} md={4}>
+                <Grid item xs={12} sm={6} lg={4}>
                     <DashboardCard
                         title="Total Events"
                         value={dashboardData.totalEvents}
@@ -107,7 +126,7 @@ const AdminDashboard = () => {
                         onClick={() => navigate('/admin/events')}
                     />
                 </Grid>
-                <Grid item xs={12} md={4}>
+                <Grid item xs={12} sm={6} lg={4}>
                     <DashboardCard
                         title="Total Revenue"
                         value={`$${dashboardData.totalRevenue?.toLocaleString() || 0}`}
@@ -117,7 +136,7 @@ const AdminDashboard = () => {
                         onClick={() => navigate('/admin/finances')}
                     />
                 </Grid>
-                <Grid item xs={12} md={4}>
+                <Grid item xs={12} sm={6} lg={4}>
                     <DashboardCard
                         title="Total Teams"
                         value={dashboardData.totalTeams}
@@ -127,7 +146,7 @@ const AdminDashboard = () => {
                         onClick={() => navigate('/admin/teams')}
                     />
                 </Grid>
-                <Grid item xs={12} md={4}>
+                <Grid item xs={12} sm={6} lg={4}>
                     <DashboardCard
                         title="Accommodation Bookings"
                         value={dashboardData.accommodationBookings}
@@ -137,7 +156,7 @@ const AdminDashboard = () => {
                         onClick={() => navigate('/admin/accommodations')}
                     />
                 </Grid>
-                <Grid item xs={12} md={4}>
+                <Grid item xs={12} sm={6} lg={4}>
                     <DashboardCard
                         title="Analytics"
                         value="View Reports"
