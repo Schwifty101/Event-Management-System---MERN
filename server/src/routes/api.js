@@ -11,6 +11,7 @@ import sponsorshipRoutes from './sponsorshipRoutes.js';
 import accommodationRoutes from './accommodationRoutes.js';
 import paymentRoutes from './paymentRoutes.js';
 import analyticsRoutes from './analyticsRoutes.js';
+import adminRoutes from './adminRoutes.js'; // Import new admin routes
 
 const router = express.Router();
 
@@ -40,5 +41,8 @@ router.use('/payments', paymentRoutes);
 
 // Analytics and reporting routes
 router.use('/analytics', analyticsRoutes);
+
+// Admin management routes
+router.use('/admin', adminRoutes);
 
 export default router;

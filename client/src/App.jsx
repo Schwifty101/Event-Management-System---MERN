@@ -8,6 +8,12 @@ import DashboardRouter from './components/dashboard/DashboardRouter';
 import LoadingSpinner from './components/common/LoadingSpinner';
 import { createTheme, ThemeProvider, CssBaseline } from '@mui/material';
 
+// Import Admin components
+import AdminDashboard from './components/admin/AdminDashboard';
+import UserManagement from './components/admin/UserManagement';
+import RolePermissionManagement from './components/admin/RolePermissionManagement';
+import AnalyticsDashboard from './components/admin/AnalyticsDashboard';
+
 // Create a theme
 const theme = createTheme({
     palette: {
@@ -66,7 +72,10 @@ function App() {
                             <Route element={<MainLayout />}>
                                 {/* Admin routes */}
                                 <Route element={<RoleBasedRoute allowedRoles={['admin']} />}>
-                                    <Route path="/admin/dashboard" element={<div>Admin Dashboard</div>} />
+                                    <Route path="/admin/dashboard" element={<AdminDashboard />} />
+                                    <Route path="/admin/users" element={<UserManagement />} />
+                                    <Route path="/admin/permissions" element={<RolePermissionManagement />} />
+                                    <Route path="/admin/analytics" element={<AnalyticsDashboard />} />
                                     <Route path="/admin/events" element={<div>Manage Events</div>} />
                                     <Route path="/admin/teams" element={<div>Manage Teams</div>} />
                                 </Route>

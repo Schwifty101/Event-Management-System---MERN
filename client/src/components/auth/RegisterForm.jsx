@@ -192,8 +192,10 @@ const RegisterForm = () => {
                             label="Role"
                             onChange={handleChange}
                         >
+                            <MenuItem value="organizer">Event Organizer</MenuItem>
                             <MenuItem value="participant">Participant</MenuItem>
                             <MenuItem value="sponsor">Sponsor</MenuItem>
+                            <MenuItem value="judge">Judge</MenuItem>
                         </Select>
                     </FormControl>
 
