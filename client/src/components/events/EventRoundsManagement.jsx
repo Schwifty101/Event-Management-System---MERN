@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import {
     Box,
@@ -28,7 +28,8 @@ import {
     List,
     ListItem,
     ListItemText,
-    ListItemSecondaryAction
+    ListItemSecondaryAction,
+    Checkbox
 } from '@mui/material';
 import {
     Add as AddIcon,
@@ -82,13 +83,7 @@ const EventRoundsManagement = () => {
     const [nextRound, setNextRound] = useState('');
     const [availableNextRounds, setAvailableNextRounds] = useState([]);
 
-    useEffect(() => {
-        fetchEventDetails();
-        fetchRounds();
-        fetchJudges();
-    }, [eventId]);
-
-    const fetchEventDetails = async () => {
+    const fetchEventDetails = useCallback(async () => {
         try {
             setLoading(true);
             const response = await axios.get(`/api/events/${eventId}`, {
@@ -104,9 +99,9 @@ const EventRoundsManagement = () => {
                 severity: 'error'
             });
         }
-    };
+    }, [eventId]);
 
-    const fetchRounds = async () => {
+    const fetchRounds = useCallback(async () => {
         try {
             setLoading(true);
             const response = await axios.get(`/api/rounds/event/${eventId}`, {
@@ -124,9 +119,9 @@ const EventRoundsManagement = () => {
             });
             setLoading(false);
         }
-    };
+    }, [eventId]);
 
-    const fetchJudges = async () => {
+    const fetchJudges = useCallback(async () => {
         try {
             const response = await axios.get('/api/users?role=judge', {
                 headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
@@ -136,7 +131,13 @@ const EventRoundsManagement = () => {
         } catch (error) {
             console.error('Error fetching judges:', error);
         }
-    };
+    }, []);
+
+    useEffect(() => {
+        fetchEventDetails();
+        fetchRounds();
+        fetchJudges();
+    }, [fetchEventDetails, fetchRounds, fetchJudges]);
 
     const fetchRoundJudges = async (roundId) => {
         try {
@@ -461,7 +462,407 @@ const EventRoundsManagement = () => {
         }
     };
 
-    // Main component rendering
+    const renderRoundFormDialog = () => (
+        <LocalizationProvider dateAdapter={AdapterDateFns}>
+            <Dialog
+                open={roundDialogOpen}
+                onClose={() => setRoundDialogOpen(false)}
+                maxWidth="md"
+                fullWidth
+            >
+                <DialogTitle>
+                    {dialogMode === 'add' ? 'Create New Round' : 'Edit Round'}
+                </DialogTitle>
+                <DialogContent>
+                    <Grid container spacing={2} sx={{ mt: 1 }}>
+                        <Grid md={12}>
+                            <TextField
+                                name="name"
+                                label="Round Name"
+                                fullWidth
+                                value={currentRound.name}
+                                onChange={handleInputChange}
+                                required
+                            />
+                        </Grid>
+                        <Grid md={12}>
+                            <TextField
+                                name="description"
+                                label="Description"
+                                fullWidth
+                                multiline
+                                rows={2}
+                                value={currentRound.description}
+                                onChange={handleInputChange}
+                            />
+                        </Grid>
+                        <Grid md={6}>
+                            <FormControl fullWidth required>
+                                <InputLabel>Round Type</InputLabel>
+                                <Select
+                                    name="round_type"
+                                    value={currentRound.round_type}
+                                    onChange={handleInputChange}
+                                    label="Round Type"
+                                >
+                                    <MenuItem value="preliminary">Preliminary</MenuItem>
+                                    <MenuItem value="semifinal">Semi-Final</MenuItem>
+                                    <MenuItem value="final">Final</MenuItem>
+                                    <MenuItem value="other">Other</MenuItem>
+                                </Select>
+                            </FormControl>
+                        </Grid>
+                        <Grid md={6}>
+                            <FormControl fullWidth required>
+                                <InputLabel>Status</InputLabel>
+                                <Select
+                                    name="status"
+                                    value={currentRound.status}
+                                    onChange={handleInputChange}
+                                    label="Status"
+                                >
+                                    <MenuItem value="upcoming">Upcoming</MenuItem>
+                                    <MenuItem value="ongoing">Ongoing</MenuItem>
+                                    <MenuItem value="completed">Completed</MenuItem>
+                                    <MenuItem value="cancelled">Cancelled</MenuItem>
+                                </Select>
+                            </FormControl>
+                        </Grid>
+                        <Grid md={6}>
+                            <DateTimePicker
+                                label="Start Time"
+                                value={currentRound.start_time}
+                                onChange={(newValue) => handleDateChange('start_time', newValue)}
+                                slotProps={{
+                                    textField: {
+                                        fullWidth: true,
+                                        required: true
+                                    }
+                                }}
+                            />
+                        </Grid>
+                        <Grid md={6}>
+                            <DateTimePicker
+                                label="End Time"
+                                value={currentRound.end_time}
+                                onChange={(newValue) => handleDateChange('end_time', newValue)}
+                                slotProps={{
+                                    textField: {
+                                        fullWidth: true,
+                                        required: true
+                                    }
+                                }}
+                            />
+                        </Grid>
+                        <Grid md={6}>
+                            <TextField
+                                name="location"
+                                label="Location"
+                                fullWidth
+                                value={currentRound.location}
+                                onChange={handleInputChange}
+                                required
+                            />
+                        </Grid>
+                        <Grid md={6}>
+                            <TextField
+                                name="max_participants"
+                                label="Maximum Participants"
+                                type="number"
+                                fullWidth
+                                value={currentRound.max_participants}
+                                onChange={handleInputChange}
+                                helperText="Leave as 0 for unlimited"
+                            />
+                        </Grid>
+                    </Grid>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setRoundDialogOpen(false)}>Cancel</Button>
+                    <Button onClick={handleSubmitRound} variant="contained" color="primary">
+                        {dialogMode === 'add' ? 'Create Round' : 'Save Changes'}
+                    </Button>
+                </DialogActions>
+            </Dialog>
+        </LocalizationProvider>
+    );
+
+    const renderParticipantsDialog = () => (
+        <Dialog
+            open={participantsDialogOpen}
+            onClose={() => setParticipantsDialogOpen(false)}
+            maxWidth="md"
+            fullWidth
+        >
+            <DialogTitle>
+                Participants - {selectedRound?.name}
+            </DialogTitle>
+            <DialogContent>
+                {participants.length === 0 ? (
+                    <Box sx={{ py: 4, textAlign: 'center' }}>
+                        <Typography variant="subtitle1" color="textSecondary">
+                            No participants registered for this round yet
+                        </Typography>
+                    </Box>
+                ) : (
+                    <Box sx={{ mt: 2 }}>
+                        <Paper variant="outlined">
+                            <List>
+                                {participants.map((participant) => (
+                                    <ListItem key={participant.id} divider>
+                                        <ListItemText
+                                            primary={
+                                                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                                                    <Typography variant="subtitle1">
+                                                        {participant.team_name || participant.participant_name || 'Unnamed Participant'}
+                                                    </Typography>
+                                                    <Chip
+                                                        size="small"
+                                                        label={participant.status}
+                                                        color={
+                                                            participant.status === 'registered' ? 'default' :
+                                                                participant.status === 'checked_in' ? 'primary' :
+                                                                    participant.status === 'advanced' ? 'success' :
+                                                                        participant.status === 'eliminated' ? 'error' :
+                                                                            'default'
+                                                        }
+                                                        sx={{ ml: 2 }}
+                                                    />
+                                                </Box>
+                                            }
+                                            secondary={
+                                                <Box>
+                                                    {participant.team_id ? (
+                                                        <Typography variant="body2">
+                                                            Team Entry
+                                                        </Typography>
+                                                    ) : (
+                                                        <Typography variant="body2">
+                                                            Individual Participant • {participant.participant_email || 'No email provided'}
+                                                        </Typography>
+                                                    )}
+                                                    {participant.score && (
+                                                        <Typography variant="body2" sx={{ mt: 0.5 }}>
+                                                            <strong>Score:</strong> {participant.score}
+                                                        </Typography>
+                                                    )}
+                                                </Box>
+                                            }
+                                        />
+                                    </ListItem>
+                                ))}
+                            </List>
+                        </Paper>
+                    </Box>
+                )}
+            </DialogContent>
+            <DialogActions>
+                <Button onClick={() => setParticipantsDialogOpen(false)}>Close</Button>
+            </DialogActions>
+        </Dialog>
+    );
+
+    const renderJudgeDialog = () => (
+        <Dialog
+            open={judgeDialogOpen}
+            onClose={() => setJudgeDialogOpen(false)}
+            maxWidth="md"
+            fullWidth
+        >
+            <DialogTitle>
+                Assigned Judges - {selectedRound?.name}
+            </DialogTitle>
+            <DialogContent>
+                <Box sx={{ mt: 2 }}>
+                    {roundJudges.length === 0 ? (
+                        <Box sx={{ py: 4, textAlign: 'center' }}>
+                            <Typography variant="subtitle1" color="textSecondary">
+                                No judges assigned to this round yet
+                            </Typography>
+                        </Box>
+                    ) : (
+                        <Paper variant="outlined" sx={{ mb: 3 }}>
+                            <List>
+                                {roundJudges.map((assignment) => (
+                                    <ListItem key={assignment.id} divider>
+                                        <ListItemText
+                                            primary={assignment.judge_name}
+                                            secondary={
+                                                <Box>
+                                                    <Typography variant="body2">
+                                                        {assignment.judge_email}
+                                                    </Typography>
+                                                    <Chip
+                                                        size="small"
+                                                        label={assignment.status || 'pending'}
+                                                        color={
+                                                            assignment.status === 'completed' ? 'success' :
+                                                                assignment.status === 'accepted' ? 'primary' :
+                                                                    assignment.status === 'declined' ? 'error' :
+                                                                        'default'
+                                                        }
+                                                        sx={{ mt: 0.5 }}
+                                                    />
+                                                </Box>
+                                            }
+                                        />
+                                        <ListItemSecondaryAction>
+                                            <IconButton edge="end" aria-label="delete" onClick={() => handleRemoveJudge(assignment.id)}>
+                                                <DeleteIcon />
+                                            </IconButton>
+                                        </ListItemSecondaryAction>
+                                    </ListItem>
+                                ))}
+                            </List>
+                        </Paper>
+                    )}
+
+                    <Typography variant="subtitle1" gutterBottom sx={{ mt: 4 }}>
+                        Assign New Judge
+                    </Typography>
+                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                        <FormControl fullWidth sx={{ mr: 2 }}>
+                            <InputLabel>Select Judge</InputLabel>
+                            <Select
+                                value={selectedJudge}
+                                onChange={(e) => setSelectedJudge(e.target.value)}
+                                label="Select Judge"
+                            >
+                                <MenuItem value="">
+                                    <em>Select a judge</em>
+                                </MenuItem>
+                                {judges.map((judge) => (
+                                    <MenuItem key={judge.id} value={judge.id}>
+                                        {judge.name}
+                                    </MenuItem>
+                                ))}
+                            </Select>
+                        </FormControl>
+                        <Button
+                            variant="contained"
+                            onClick={handleAssignJudge}
+                            disabled={!selectedJudge}
+                        >
+                            Assign
+                        </Button>
+                    </Box>
+                </Box>
+            </DialogContent>
+            <DialogActions>
+                <Button onClick={() => setJudgeDialogOpen(false)}>Close</Button>
+            </DialogActions>
+        </Dialog>
+    );
+
+    const renderWinnerDialog = () => (
+        <Dialog
+            open={winnerDialogOpen}
+            onClose={() => setWinnerDialogOpen(false)}
+            maxWidth="md"
+            fullWidth
+        >
+            <DialogTitle>
+                Declare Winners - {selectedRound?.name}
+            </DialogTitle>
+            <DialogContent>
+                {participants.length === 0 ? (
+                    <Box sx={{ py: 4, textAlign: 'center' }}>
+                        <Typography variant="subtitle1" color="textSecondary">
+                            No participants available in this round
+                        </Typography>
+                    </Box>
+                ) : (
+                    <Box sx={{ mt: 2 }}>
+                        <Typography variant="subtitle1" gutterBottom>
+                            Select Winners
+                        </Typography>
+                        <Paper variant="outlined">
+                            <List>
+                                {participants.map((participant) => {
+                                    const participantId = participant.user_id || participant.team_id;
+                                    const isWinner = selectedWinners.includes(participantId);
+
+                                    return (
+                                        <ListItem
+                                            key={participant.id}
+                                            divider
+                                            secondaryAction={
+                                                <Checkbox
+                                                    edge="end"
+                                                    checked={isWinner}
+                                                    onChange={() => handleToggleWinner(participantId)}
+                                                    inputProps={{ 'aria-labelledby': `winner-${participant.id}` }}
+                                                />
+                                            }
+                                        >
+                                            <ListItemText
+                                                id={`winner-${participant.id}`}
+                                                primary={
+                                                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                                                        <Typography variant="subtitle1">
+                                                            {participant.team_name || participant.participant_name || 'Unnamed Participant'}
+                                                        </Typography>
+                                                        {participant.score && (
+                                                            <Chip
+                                                                size="small"
+                                                                label={`Score: ${participant.score}`}
+                                                                color="primary"
+                                                                sx={{ ml: 2 }}
+                                                            />
+                                                        )}
+                                                    </Box>
+                                                }
+                                                secondary={
+                                                    participant.team_id ? 'Team Entry' : `Individual Participant • ${participant.participant_email || 'No email'}`
+                                                }
+                                            />
+                                        </ListItem>
+                                    );
+                                })}
+                            </List>
+                        </Paper>
+
+                        {availableNextRounds.length > 0 && (
+                            <Box sx={{ mt: 3 }}>
+                                <Typography variant="subtitle1" gutterBottom>
+                                    Advance to Next Round
+                                </Typography>
+                                <FormControl fullWidth>
+                                    <InputLabel>Select Next Round</InputLabel>
+                                    <Select
+                                        value={nextRound}
+                                        onChange={(e) => setNextRound(e.target.value)}
+                                        label="Select Next Round"
+                                    >
+                                        <MenuItem value="">
+                                            <em>Don't advance to next round</em>
+                                        </MenuItem>
+                                        {availableNextRounds.map((round) => (
+                                            <MenuItem key={round.id} value={round.id}>
+                                                {round.name}
+                                            </MenuItem>
+                                        ))}
+                                    </Select>
+                                </FormControl>
+                            </Box>
+                        )}
+                    </Box>
+                )}
+            </DialogContent>
+            <DialogActions>
+                <Button onClick={() => setWinnerDialogOpen(false)}>Cancel</Button>
+                <Button
+                    onClick={handleDeclareWinnersSubmit}
+                    variant="contained"
+                    color="primary"
+                    disabled={selectedWinners.length === 0}
+                >
+                    Confirm Winners
+                </Button>
+            </DialogActions>
+        </Dialog>
+    );
+
     if (loading && !event) {
         return (
             <Box sx={{ display: 'flex', justifyContent: 'center', p: 5 }}>
@@ -498,7 +899,7 @@ const EventRoundsManagement = () => {
             ) : (
                 <Grid container spacing={3}>
                     {rounds.length === 0 ? (
-                        <Grid item xs={12}>
+                        <Grid md={12}>
                             <Paper sx={{ p: 4, textAlign: 'center' }}>
                                 <Typography variant="h6" color="textSecondary">
                                     No rounds created yet
@@ -517,7 +918,7 @@ const EventRoundsManagement = () => {
                         </Grid>
                     ) : (
                         rounds.map((round) => (
-                            <Grid item xs={12} md={6} key={round.id}>
+                            <Grid md={6} key={round.id}>
                                 <Card>
                                     <CardContent>
                                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
@@ -538,22 +939,22 @@ const EventRoundsManagement = () => {
                                         )}
 
                                         <Grid container spacing={2}>
-                                            <Grid item xs={12} sm={6}>
+                                            <Grid md={6}>
                                                 <Typography variant="body2">
                                                     <strong>Location:</strong> {round.location}
                                                 </Typography>
                                             </Grid>
-                                            <Grid item xs={12} sm={6}>
+                                            <Grid md={6}>
                                                 <Typography variant="body2">
                                                     <strong>Capacity:</strong> {round.max_participants || 'Unlimited'}
                                                 </Typography>
                                             </Grid>
-                                            <Grid item xs={12} sm={6}>
+                                            <Grid md={6}>
                                                 <Typography variant="body2">
                                                     <strong>Start:</strong> {new Date(round.start_time).toLocaleString()}
                                                 </Typography>
                                             </Grid>
-                                            <Grid item xs={12} sm={6}>
+                                            <Grid md={6}>
                                                 <Typography variant="body2">
                                                     <strong>End:</strong> {new Date(round.end_time).toLocaleString()}
                                                 </Typography>
@@ -601,119 +1002,11 @@ const EventRoundsManagement = () => {
                 </Grid>
             )}
 
-            {/* Round Form Dialog */}
-            <LocalizationProvider dateAdapter={AdapterDateFns}>
-                <Dialog
-                    open={roundDialogOpen}
-                    onClose={() => setRoundDialogOpen(false)}
-                    maxWidth="md"
-                    fullWidth
-                >
-                    <DialogTitle>
-                        {dialogMode === 'add' ? 'Create New Round' : 'Edit Round'}
-                    </DialogTitle>
-                    <DialogContent>
-                        <Grid container spacing={2} sx={{ mt: 1 }}>
-                            <Grid item xs={12}>
-                                <TextField
-                                    name="name"
-                                    label="Round Name"
-                                    fullWidth
-                                    value={currentRound.name}
-                                    onChange={handleInputChange}
-                                    required
-                                />
-                            </Grid>
-                            <Grid item xs={12}>
-                                <TextField
-                                    name="description"
-                                    label="Description"
-                                    fullWidth
-                                    multiline
-                                    rows={2}
-                                    value={currentRound.description}
-                                    onChange={handleInputChange}
-                                />
-                            </Grid>
-                            <Grid item xs={12} md={6}>
-                                <FormControl fullWidth required>
-                                    <InputLabel>Round Type</InputLabel>
-                                    <Select
-                                        name="round_type"
-                                        value={currentRound.round_type}
-                                        onChange={handleInputChange}
-                                        label="Round Type"
-                                    >
-                                        <MenuItem value="preliminary">Preliminary</MenuItem>
-                                        <MenuItem value="semifinal">Semi-Final</MenuItem>
-                                        <MenuItem value="final">Final</MenuItem>
-                                        <MenuItem value="other">Other</MenuItem>
-                                    </Select>
-                                </FormControl>
-                            </Grid>
-                            <Grid item xs={12} md={6}>
-                                <FormControl fullWidth required>
-                                    <InputLabel>Status</InputLabel>
-                                    <Select
-                                        name="status"
-                                        value={currentRound.status}
-                                        onChange={handleInputChange}
-                                        label="Status"
-                                    >
-                                        <MenuItem value="upcoming">Upcoming</MenuItem>
-                                        <MenuItem value="ongoing">Ongoing</MenuItem>
-                                        <MenuItem value="completed">Completed</MenuItem>
-                                        <MenuItem value="cancelled">Cancelled</MenuItem>
-                                    </Select>
-                                </FormControl>
-                            </Grid>
-                            <Grid item xs={12} md={6}>
-                                <DateTimePicker
-                                    label="Start Time"
-                                    value={currentRound.start_time}
-                                    onChange={(newValue) => handleDateChange('start_time', newValue)}
-                                    renderInput={(params) => <TextField {...params} fullWidth required />}
-                                />
-                            </Grid>
-                            <Grid item xs={12} md={6}>
-                                <DateTimePicker
-                                    label="End Time"
-                                    value={currentRound.end_time}
-                                    onChange={(newValue) => handleDateChange('end_time', newValue)}
-                                    renderInput={(params) => <TextField {...params} fullWidth required />}
-                                />
-                            </Grid>
-                            <Grid item xs={12} md={6}>
-                                <TextField
-                                    name="location"
-                                    label="Location"
-                                    fullWidth
-                                    value={currentRound.location}
-                                    onChange={handleInputChange}
-                                    required
-                                />
-                            </Grid>
-                            <Grid item xs={12} md={6}>
-                                <TextField
-                                    name="max_participants"
-                                    label="Maximum Participants"
-                                    type="number"
-                                    fullWidth
-                                    value={currentRound.max_participants}
-                                    onChange={handleInputChange}
-                                    helperText="Leave as 0 for unlimited"
-                                />
-                            </Grid>
-                        </Grid>
-                    </DialogContent>
-                    <DialogActions>
-                        <Button onClick={() => setRoundDialogOpen(false)}>Cancel</Button>
-                        <Button onClick={handleSubmitRound} variant="contained" color="primary">
-                            {dialogMode === 'add' ? 'Create Round' : 'Save Changes'}
-                        </Button>
-                    </DialogActions>
-                </Dialog>
-            </LocalizationProvider>
+            {/* Render dialogs */}
+            {renderRoundFormDialog()}
+            {renderParticipantsDialog()}
+            {renderJudgeDialog()}
+            {renderWinnerDialog()}
 
             {/* Delete Confirmation Dialog */}
             <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)}>
@@ -727,273 +1020,6 @@ const EventRoundsManagement = () => {
                     <Button onClick={() => setDeleteDialogOpen(false)}>Cancel</Button>
                     <Button onClick={handleConfirmDelete} variant="contained" color="error">
                         Delete
-                    </Button>
-                </DialogActions>
-            </Dialog>
-
-            {/* Judge Assignment Dialog */}
-            <Dialog
-                open={judgeDialogOpen}
-                onClose={() => setJudgeDialogOpen(false)}
-                maxWidth="sm"
-                fullWidth
-            >
-                <DialogTitle>Manage Judges - {selectedRound?.name}</DialogTitle>
-                <DialogContent>
-                    <Box sx={{ mb: 3, mt: 1 }}>
-                        <Typography variant="subtitle2" gutterBottom>
-                            Assign New Judge
-                        </Typography>
-                        <Grid container spacing={2}>
-                            <Grid item xs={8}>
-                                <FormControl fullWidth>
-                                    <InputLabel>Select Judge</InputLabel>
-                                    <Select
-                                        value={selectedJudge}
-                                        onChange={(e) => setSelectedJudge(e.target.value)}
-                                        label="Select Judge"
-                                    >
-                                        {judges.map(judge => (
-                                            <MenuItem key={judge.id} value={judge.id}>
-                                                {judge.name}
-                                            </MenuItem>
-                                        ))}
-                                    </Select>
-                                </FormControl>
-                            </Grid>
-                            <Grid item xs={4}>
-                                <Button
-                                    variant="contained"
-                                    onClick={handleAssignJudge}
-                                    fullWidth
-                                    sx={{ height: '100%' }}
-                                >
-                                    Assign
-                                </Button>
-                            </Grid>
-                        </Grid>
-                    </Box>
-
-                    <Divider sx={{ my: 2 }} />
-
-                    <Typography variant="subtitle2" gutterBottom>
-                        Current Judges
-                    </Typography>
-
-                    {roundJudges.length === 0 ? (
-                        <Typography variant="body2" color="textSecondary" align="center">
-                            No judges assigned to this round yet
-                        </Typography>
-                    ) : (
-                        <List>
-                            {roundJudges.map(assignment => (
-                                <ListItem key={assignment.id} divider>
-                                    <ListItemText
-                                        primary={assignment.judge_name}
-                                        secondary={`Assignment Status: ${assignment.status || 'Pending'}`}
-                                    />
-                                    <ListItemSecondaryAction>
-                                        <IconButton
-                                            edge="end"
-                                            size="small"
-                                            color="error"
-                                            onClick={() => handleRemoveJudge(assignment.id)}
-                                        >
-                                            <DeleteIcon />
-                                        </IconButton>
-                                    </ListItemSecondaryAction>
-                                </ListItem>
-                            ))}
-                        </List>
-                    )}
-                </DialogContent>
-                <DialogActions>
-                    <Button onClick={() => setJudgeDialogOpen(false)}>Close</Button>
-                </DialogActions>
-            </Dialog>
-
-            {/* Participants Dialog */}
-            <Dialog
-                open={participantsDialogOpen}
-                onClose={() => setParticipantsDialogOpen(false)}
-                maxWidth="md"
-                fullWidth
-            >
-                <DialogTitle>Participants - {selectedRound?.name}</DialogTitle>
-                <DialogContent>
-                    {participants.length === 0 ? (
-                        <Typography variant="body2" color="textSecondary" align="center" sx={{ my: 3 }}>
-                            No participants registered for this round yet
-                        </Typography>
-                    ) : (
-                        <Box sx={{ mt: 2 }}>
-                            <Grid container spacing={1}>
-                                <Grid item xs={4}><Typography variant="subtitle2">Participant</Typography></Grid>
-                                <Grid item xs={2}><Typography variant="subtitle2">Type</Typography></Grid>
-                                <Grid item xs={2}><Typography variant="subtitle2">Status</Typography></Grid>
-                                <Grid item xs={2}><Typography variant="subtitle2">Score</Typography></Grid>
-                                <Grid item xs={2}><Typography variant="subtitle2">Actions</Typography></Grid>
-                            </Grid>
-                            <Divider sx={{ my: 1 }} />
-
-                            {participants.map(participant => (
-                                <Grid container spacing={1} key={participant.id} sx={{ py: 1 }}>
-                                    <Grid item xs={4}>
-                                        <Typography>
-                                            {participant.team_name || participant.participant_name || 'Unknown'}
-                                        </Typography>
-                                    </Grid>
-                                    <Grid item xs={2}>
-                                        <Chip
-                                            size="small"
-                                            label={participant.team_id ? 'Team' : 'Individual'}
-                                            color={participant.team_id ? 'primary' : 'secondary'}
-                                        />
-                                    </Grid>
-                                    <Grid item xs={2}>
-                                        <Chip
-                                            size="small"
-                                            label={participant.status}
-                                            color={
-                                                participant.status === 'advanced' ? 'success' :
-                                                    participant.status === 'eliminated' ? 'error' :
-                                                        participant.status === 'checked_in' ? 'info' :
-                                                            'default'
-                                            }
-                                        />
-                                    </Grid>
-                                    <Grid item xs={2}>
-                                        <Typography>
-                                            {participant.score !== null ? participant.score : 'N/A'}
-                                        </Typography>
-                                    </Grid>
-                                    <Grid item xs={2}>
-                                        <Button size="small" variant="outlined">
-                                            View Detail
-                                        </Button>
-                                    </Grid>
-                                </Grid>
-                            ))}
-                        </Box>
-                    )}
-                </DialogContent>
-                <DialogActions>
-                    <Button onClick={() => setParticipantsDialogOpen(false)}>Close</Button>
-                </DialogActions>
-            </Dialog>
-
-            {/* Declare Winners Dialog */}
-            <Dialog
-                open={winnerDialogOpen}
-                onClose={() => setWinnerDialogOpen(false)}
-                maxWidth="md"
-                fullWidth
-            >
-                <DialogTitle>Declare Winners - {selectedRound?.name}</DialogTitle>
-                <DialogContent>
-                    {participants.length === 0 ? (
-                        <Typography variant="body2" color="textSecondary" align="center" sx={{ my: 3 }}>
-                            No participants available to select as winners
-                        </Typography>
-                    ) : (
-                        <>
-                            <Typography variant="body2" color="textSecondary" sx={{ mt: 1, mb: 2 }}>
-                                Select participants to declare as winners. Winners can be advanced to the next round.
-                            </Typography>
-
-                            <Box sx={{ mb: 3 }}>
-                                <Grid container spacing={1}>
-                                    <Grid item xs={1}><Typography variant="subtitle2">Select</Typography></Grid>
-                                    <Grid item xs={4}><Typography variant="subtitle2">Participant</Typography></Grid>
-                                    <Grid item xs={2}><Typography variant="subtitle2">Type</Typography></Grid>
-                                    <Grid item xs={2}><Typography variant="subtitle2">Status</Typography></Grid>
-                                    <Grid item xs={3}><Typography variant="subtitle2">Score</Typography></Grid>
-                                </Grid>
-                                <Divider sx={{ my: 1 }} />
-
-                                {participants
-                                    .sort((a, b) => (b.score || 0) - (a.score || 0)) // Sort by score descending
-                                    .map(participant => {
-                                        const participantId = participant.team_id || participant.user_id;
-                                        return (
-                                            <Grid
-                                                container
-                                                spacing={1}
-                                                key={participant.id}
-                                                sx={{
-                                                    py: 1,
-                                                    bgcolor: selectedWinners.includes(participantId) ? 'rgba(76, 175, 80, 0.1)' : 'transparent',
-                                                    '&:hover': { bgcolor: 'rgba(0, 0, 0, 0.04)' }
-                                                }}
-                                                onClick={() => handleToggleWinner(participantId)}
-                                            >
-                                                <Grid item xs={1}>
-                                                    <Checkbox
-                                                        checked={selectedWinners.includes(participantId)}
-                                                        onChange={() => handleToggleWinner(participantId)}
-                                                    />
-                                                </Grid>
-                                                <Grid item xs={4}>
-                                                    <Typography>
-                                                        {participant.team_name || participant.participant_name || 'Unknown'}
-                                                    </Typography>
-                                                </Grid>
-                                                <Grid item xs={2}>
-                                                    <Chip
-                                                        size="small"
-                                                        label={participant.team_id ? 'Team' : 'Individual'}
-                                                        color={participant.team_id ? 'primary' : 'secondary'}
-                                                    />
-                                                </Grid>
-                                                <Grid item xs={2}>
-                                                    <Chip size="small" label={participant.status} />
-                                                </Grid>
-                                                <Grid item xs={3}>
-                                                    <Typography fontWeight="bold">
-                                                        {participant.score !== null ? participant.score : 'N/A'}
-                                                    </Typography>
-                                                </Grid>
-                                            </Grid>
-                                        );
-                                    })}
-                            </Box>
-
-                            {availableNextRounds.length > 0 && (
-                                <Box sx={{ mt: 3 }}>
-                                    <Typography variant="subtitle2" gutterBottom>
-                                        Advance winners to next round (optional)
-                                    </Typography>
-                                    <FormControl fullWidth>
-                                        <InputLabel>Select Next Round</InputLabel>
-                                        <Select
-                                            value={nextRound}
-                                            onChange={(e) => setNextRound(e.target.value)}
-                                            label="Select Next Round"
-                                        >
-                                            <MenuItem value="">
-                                                <em>Don't advance to next round</em>
-                                            </MenuItem>
-                                            {availableNextRounds.map(round => (
-                                                <MenuItem key={round.id} value={round.id}>
-                                                    {round.name} ({getRoundTypeName(round.round_type)})
-                                                </MenuItem>
-                                            ))}
-                                        </Select>
-                                    </FormControl>
-                                </Box>
-                            )}
-                        </>
-                    )}
-                </DialogContent>
-                <DialogActions>
-                    <Button onClick={() => setWinnerDialogOpen(false)}>Cancel</Button>
-                    <Button
-                        onClick={handleDeclareWinnersSubmit}
-                        variant="contained"
-                        color="primary"
-                        disabled={participants.length === 0 || selectedWinners.length === 0}
-                    >
-                        Declare Winners
                     </Button>
                 </DialogActions>
             </Dialog>

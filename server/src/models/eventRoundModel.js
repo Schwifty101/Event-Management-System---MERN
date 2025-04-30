@@ -17,16 +17,28 @@ export class EventRound {
                 throw new Error('Event ID, name, and round type are required');
             }
 
+            // Format datetime values for MySQL
+            let formattedStartTime = null;
+            let formattedEndTime = null;
+            
+            if (start_time) {
+                formattedStartTime = new Date(start_time).toISOString().slice(0, 19).replace('T', ' ');
+            }
+            
+            if (end_time) {
+                formattedEndTime = new Date(end_time).toISOString().slice(0, 19).replace('T', ' ');
+            }
+
             const query = `
                 INSERT INTO event_rounds (
                     event_id, name, description, round_type,
-                    start_time, end_time, location, max_participants
+                    start_time, end_time, location, capacity
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             `;
 
             const [result] = await pool.execute(query, [
                 event_id, name, description, round_type,
-                start_time || null, end_time || null,
+                formattedStartTime, formattedEndTime,
                 location || null, max_participants || null
             ]);
 
@@ -206,7 +218,7 @@ export class EventRound {
                 LEFT JOIN users u ON rp.user_id = u.id
                 LEFT JOIN teams t ON rp.team_id = t.id
                 WHERE rp.round_id = ?
-                ORDER BY rp.registered_at
+                ORDER BY rp.id
             `, [roundId]);
 
             return rows;

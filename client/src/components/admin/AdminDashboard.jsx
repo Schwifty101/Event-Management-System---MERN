@@ -106,7 +106,7 @@ const AdminDashboard = () => {
 
             <Grid container spacing={3}>
                 {/* Key metric cards */}
-                <Grid item xs={12} sm={6} lg={4}>
+                <Grid md={4} sm={6} xs={12}>
                     <DashboardCard
                         title="Total Users"
                         value={dashboardData.totalUsers}
@@ -116,7 +116,7 @@ const AdminDashboard = () => {
                         onClick={() => navigate('/admin/users')}
                     />
                 </Grid>
-                <Grid item xs={12} sm={6} lg={4}>
+                <Grid md={4} sm={6} xs={12}>
                     <DashboardCard
                         title="Total Events"
                         value={dashboardData.totalEvents}
@@ -126,7 +126,7 @@ const AdminDashboard = () => {
                         onClick={() => navigate('/admin/events')}
                     />
                 </Grid>
-                <Grid item xs={12} sm={6} lg={4}>
+                <Grid md={4} sm={6} xs={12}>
                     <DashboardCard
                         title="Total Revenue"
                         value={`$${dashboardData.totalRevenue?.toLocaleString() || 0}`}
@@ -136,7 +136,7 @@ const AdminDashboard = () => {
                         onClick={() => navigate('/admin/finances')}
                     />
                 </Grid>
-                <Grid item xs={12} sm={6} lg={4}>
+                <Grid md={4} sm={6} xs={12}>
                     <DashboardCard
                         title="Total Teams"
                         value={dashboardData.totalTeams}
@@ -146,7 +146,7 @@ const AdminDashboard = () => {
                         onClick={() => navigate('/admin/teams')}
                     />
                 </Grid>
-                <Grid item xs={12} sm={6} lg={4}>
+                <Grid md={4} sm={6} xs={12}>
                     <DashboardCard
                         title="Accommodation Bookings"
                         value={dashboardData.accommodationBookings}
@@ -156,7 +156,7 @@ const AdminDashboard = () => {
                         onClick={() => navigate('/admin/accommodations')}
                     />
                 </Grid>
-                <Grid item xs={12} sm={6} lg={4}>
+                <Grid md={4} sm={6} xs={12}>
                     <DashboardCard
                         title="Analytics"
                         value="View Reports"
@@ -170,7 +170,7 @@ const AdminDashboard = () => {
 
             {/* Additional widgets and reports would go here */}
             <Grid container spacing={3} sx={{ mt: 2 }}>
-                <Grid item xs={12}>
+                <Grid xs={12}>
                     <Paper sx={{ p: 3 }}>
                         <Typography variant="h6" gutterBottom>Recent Activity</Typography>
                         {/* Activity log or recent actions would go here */}

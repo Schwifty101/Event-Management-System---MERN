@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
     Box,
     Typography,
@@ -74,12 +74,7 @@ const EventManagement = () => {
     });
     const [categories, setCategories] = useState([]);
 
-    useEffect(() => {
-        fetchEvents();
-        fetchCategories();
-    }, []);
-
-    const fetchEvents = async () => {
+    const fetchEvents = useCallback(async () => {
         try {
             setLoading(true);
             let url = '/api/events';
@@ -104,9 +99,9 @@ const EventManagement = () => {
             });
             setLoading(false);
         }
-    };
+    }, [user.role, user.id]);
 
-    const fetchCategories = async () => {
+    const fetchCategories = useCallback(async () => {
         try {
             const response = await axios.get('/api/categories', {
                 headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
@@ -116,7 +111,12 @@ const EventManagement = () => {
         } catch (error) {
             console.error('Error fetching categories:', error);
         }
-    };
+    }, []);
+
+    useEffect(() => {
+        fetchEvents();
+        fetchCategories();
+    }, [fetchEvents, fetchCategories]);
 
     const handleTabChange = (event, newValue) => {
         setTabValue(newValue);
@@ -299,7 +299,7 @@ const EventManagement = () => {
         return (
             <Grid container spacing={3}>
                 {events.map((event) => (
-                    <Grid item xs={12} sm={6} md={4} key={event.id}>
+                    <Grid key={event.id} md={4} sm={6} xs={12}>
                         <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
                             <CardContent sx={{ flexGrow: 1 }}>
                                 <Typography variant="h5" component="h2" gutterBottom>
@@ -395,7 +395,7 @@ const EventManagement = () => {
                     <DialogTitle>{dialogMode === 'add' ? 'Create Event' : 'Edit Event'}</DialogTitle>
                     <DialogContent>
                         <Grid container spacing={2} sx={{ mt: 1 }}>
-                            <Grid item xs={12}>
+                            <Grid md={12}>
                                 <TextField
                                     name="title"
                                     label="Event Title"
@@ -405,7 +405,7 @@ const EventManagement = () => {
                                     required
                                 />
                             </Grid>
-                            <Grid item xs={12}>
+                            <Grid md={12}>
                                 <TextField
                                     name="description"
                                     label="Description"
@@ -417,7 +417,7 @@ const EventManagement = () => {
                                     required
                                 />
                             </Grid>
-                            <Grid item xs={12}>
+                            <Grid md={12}>
                                 <TextField
                                     name="rules"
                                     label="Rules"
@@ -429,7 +429,7 @@ const EventManagement = () => {
                                     helperText="Specify event rules and guidelines"
                                 />
                             </Grid>
-                            <Grid item xs={12} md={6}>
+                            <Grid md={6}>
                                 <FormControl fullWidth required>
                                     <InputLabel>Category</InputLabel>
                                     <Select
@@ -446,7 +446,7 @@ const EventManagement = () => {
                                     </Select>
                                 </FormControl>
                             </Grid>
-                            <Grid item xs={12} md={6}>
+                            <Grid md={6}>
                                 <TextField
                                     name="location"
                                     label="Venue/Location"
@@ -456,23 +456,31 @@ const EventManagement = () => {
                                     required
                                 />
                             </Grid>
-                            <Grid item xs={12} md={6}>
+                            <Grid md={6}>
                                 <DateTimePicker
                                     label="Start Date & Time"
                                     value={currentEvent.start_date}
                                     onChange={(newValue) => handleDateChange('start_date', newValue)}
-                                    renderInput={(params) => <TextField {...params} fullWidth />}
+                                    slotProps={{
+                                        textField: {
+                                            fullWidth: true
+                                        }
+                                    }}
                                 />
                             </Grid>
-                            <Grid item xs={12} md={6}>
+                            <Grid md={6}>
                                 <DateTimePicker
                                     label="End Date & Time"
                                     value={currentEvent.end_date}
                                     onChange={(newValue) => handleDateChange('end_date', newValue)}
-                                    renderInput={(params) => <TextField {...params} fullWidth />}
+                                    slotProps={{
+                                        textField: {
+                                            fullWidth: true
+                                        }
+                                    }}
                                 />
                             </Grid>
-                            <Grid item xs={12} md={6}>
+                            <Grid md={6}>
                                 <TextField
                                     name="capacity"
                                     label="Venue Capacity"
@@ -485,7 +493,7 @@ const EventManagement = () => {
                                     }}
                                 />
                             </Grid>
-                            <Grid item xs={12} md={6}>
+                            <Grid md={6}>
                                 <TextField
                                     name="max_participants"
                                     label="Max Participants"
@@ -498,7 +506,7 @@ const EventManagement = () => {
                                     }}
                                 />
                             </Grid>
-                            <Grid item xs={12} md={6}>
+                            <Grid md={6}>
                                 <TextField
                                     name="registration_fee"
                                     label="Registration Fee"
@@ -512,7 +520,7 @@ const EventManagement = () => {
                                     }}
                                 />
                             </Grid>
-                            <Grid item xs={12}>
+                            <Grid md={12}>
                                 <FormControlLabel
                                     control={
                                         <Checkbox
@@ -526,7 +534,7 @@ const EventManagement = () => {
                             </Grid>
                             {currentEvent.team_event && (
                                 <>
-                                    <Grid item xs={12} md={6}>
+                                    <Grid md={6}>
                                         <TextField
                                             name="min_team_size"
                                             label="Min Team Size"
@@ -539,7 +547,7 @@ const EventManagement = () => {
                                             }}
                                         />
                                     </Grid>
-                                    <Grid item xs={12} md={6}>
+                                    <Grid md={6}>
                                         <TextField
                                             name="max_team_size"
                                             label="Max Team Size"

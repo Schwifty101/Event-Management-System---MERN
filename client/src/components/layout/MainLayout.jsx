@@ -97,13 +97,22 @@ const MainLayout = () => {
             <Divider />
             <List>
                 {getNavItems().map((item) => (
-                    <ListItem button key={item.text} onClick={() => navigate(item.path)}>
+                    <ListItem
+                        key={item.text}
+                        onClick={() => navigate(item.path)}
+                        component="div"
+                        sx={{ cursor: 'pointer' }}
+                    >
                         <ListItemIcon>{item.icon}</ListItemIcon>
                         <ListItemText primary={item.text} />
                     </ListItem>
                 ))}
                 <Divider />
-                <ListItem button onClick={handleLogout}>
+                <ListItem
+                    onClick={handleLogout}
+                    component="div"
+                    sx={{ cursor: 'pointer' }}
+                >
                     <ListItemIcon><LogoutIcon /></ListItemIcon>
                     <ListItemText primary="Logout" />
                 </ListItem>

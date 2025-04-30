@@ -71,25 +71,29 @@ export class User {
      * @returns {Array} Array of users
      */
     static async findAll(page = 1, limit = 10, filters = {}) {
-        const offset = (page - 1) * limit;
-
         try {
+            // Ensure page and limit are integers
+            const pageNum = Number(page) || 1;
+            const limitNum = Number(limit) || 10;
+            const offset = (pageNum - 1) * limitNum;
+
             let query = 'SELECT id, name, email, role, created_at, updated_at FROM users';
             const params = [];
 
             // Apply role filter if provided
             if (filters.role) {
                 query += ' WHERE role = ?';
-                params.push(filters.role);
+                params.push(String(filters.role));
             }
 
-            // Add pagination
-            query += ' LIMIT ? OFFSET ?';
-            params.push(limit, offset);
+            // Add pagination using numeric literals for LIMIT and OFFSET
+            // MySQL expects these to be integers, so we'll construct the query differently
+            const finalQuery = `${query} LIMIT ${limitNum} OFFSET ${offset}`;
 
-            const [rows] = await pool.execute(query, params);
+            const [rows] = await pool.execute(finalQuery, params);
             return rows;
         } catch (error) {
+            console.error('Error in findAll:', error);
             throw error;
         }
     }

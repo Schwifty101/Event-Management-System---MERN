@@ -16,7 +16,7 @@ import AnalyticsDashboard from './components/admin/AnalyticsDashboard';
 
 // Import Event Management components
 import EventManagement from './components/events/EventManagement';
-import EventRoundsManagement from './components/events/EventRoundsManagement';
+import EventRoundsManagement from './components/events/EventRoundsManagement'; import EventDetails from './components/events/EventDetails';
 import JudgingPanel from './components/events/JudgingPanel';
 
 // Create a theme
@@ -118,7 +118,7 @@ function App() {
 
                                 {/* Routes accessible to all authenticated users */}
                                 <Route path="/events" element={<div>All Events</div>} />
-                                <Route path="/events/:eventId" element={<div>Event Details</div>} />
+                                <Route path="/events/:eventId" element={<EventDetails />} />
 
                                 {/* Common protected routes */}
                                 <Route path="/profile" element={<div>User Profile</div>} />

@@ -268,9 +268,9 @@ export const updateParticipantStatus = async (req, res) => {
 
         // Check if user is authorized (judge, event organizer or admin)
         const event = await Event.findById(round.event_id);
-        if (req.user.role !== 'judge' && event.organizer_id !== req.user.id && req.user.role !== 'admin') {
+        if (event.organizer_id !== req.user.id && req.user.role !== 'admin') {
             return res.status(403).json({
-                message: 'Forbidden: Only judges, event organizers or admins can update participant status'
+                message: 'Forbidden: Only event organizers or admins can update participant status'
             });
         }
 

@@ -8,6 +8,23 @@ export class Event {
      */
     static async create(eventData) {
         try {
+            // Format dates to MySQL compatible format if they're in ISO format
+            const formattedEventData = { ...eventData };
+            
+            if (formattedEventData.start_date) {
+                const startDate = new Date(formattedEventData.start_date);
+                if (!isNaN(startDate)) {
+                    formattedEventData.start_date = startDate.toISOString().slice(0, 19).replace('T', ' ');
+                }
+            }
+            
+            if (formattedEventData.end_date) {
+                const endDate = new Date(formattedEventData.end_date);
+                if (!isNaN(endDate)) {
+                    formattedEventData.end_date = endDate.toISOString().slice(0, 19).replace('T', ' ');
+                }
+            }
+
             const query = `
         INSERT INTO events (
           title, description, rules, location, start_date, end_date, 
@@ -18,21 +35,21 @@ export class Event {
       `;
 
             const [result] = await pool.execute(query, [
-                eventData.title,
-                eventData.description,
-                eventData.rules || null,
-                eventData.location,
-                eventData.start_date,
-                eventData.end_date,
-                eventData.capacity || null,
-                eventData.max_participants || null,
-                eventData.registration_fee || 0,
-                eventData.team_event || false,
-                eventData.min_team_size || 1,
-                eventData.max_team_size || 1,
-                eventData.organizer_id,
-                eventData.category || 'Other',
-                eventData.image_url || null
+                formattedEventData.title,
+                formattedEventData.description,
+                formattedEventData.rules || null,
+                formattedEventData.location,
+                formattedEventData.start_date,
+                formattedEventData.end_date,
+                formattedEventData.capacity || null,
+                formattedEventData.max_participants || null,
+                formattedEventData.registration_fee || 0,
+                formattedEventData.team_event || false,
+                formattedEventData.min_team_size || 1,
+                formattedEventData.max_team_size || 1,
+                formattedEventData.organizer_id,
+                formattedEventData.category || 'Other',
+                formattedEventData.image_url || null
             ]);
 
             return { id: result.insertId, ...eventData };
@@ -112,13 +129,13 @@ export class Event {
             // Add sorting
             query += ' ORDER BY e.start_date ASC';
 
-            // Add pagination
-            const page = options.page || 1;
-            const limit = options.limit || 10;
+            // Get pagination parameters and ensure they're integers
+            const page = parseInt(options.page) || 1;
+            const limit = parseInt(options.limit) || 10;
             const offset = (page - 1) * limit;
 
-            query += ' LIMIT ? OFFSET ?';
-            queryParams.push(limit, offset);
+            // Insert the LIMIT and OFFSET directly into the query instead of using placeholders
+            query += ` LIMIT ${limit} OFFSET ${offset}`;
 
             const [rows] = await pool.execute(query, queryParams);
             return rows;
@@ -135,6 +152,23 @@ export class Event {
      */
     static async update(id, eventData) {
         try {
+            // Format dates to MySQL compatible format if they're in ISO format
+            const formattedEventData = { ...eventData };
+            
+            if (formattedEventData.start_date) {
+                const startDate = new Date(formattedEventData.start_date);
+                if (!isNaN(startDate)) {
+                    formattedEventData.start_date = startDate.toISOString().slice(0, 19).replace('T', ' ');
+                }
+            }
+            
+            if (formattedEventData.end_date) {
+                const endDate = new Date(formattedEventData.end_date);
+                if (!isNaN(endDate)) {
+                    formattedEventData.end_date = endDate.toISOString().slice(0, 19).replace('T', ' ');
+                }
+            }
+
             const fields = [
                 'title', 'description', 'rules', 'location', 'start_date',
                 'end_date', 'capacity', 'max_participants', 'registration_fee',
@@ -146,9 +180,9 @@ export class Event {
 
             // Add fields to update
             fields.forEach(field => {
-                if (eventData[field] !== undefined) {
+                if (formattedEventData[field] !== undefined) {
                     query += `${field} = ?, `;
-                    params.push(eventData[field]);
+                    params.push(formattedEventData[field]);
                 }
             });
 
@@ -254,11 +288,12 @@ export class Event {
 
             // Add pagination
             if (options.limit) {
-                const limit = parseInt(options.limit);
-                const offset = options.offset ? parseInt(options.offset) : 0;
+                // Ensure limit and offset are integers
+                const limit = parseInt(options.limit, 10);
+                const offset = options.offset ? parseInt(options.offset, 10) : 0;
 
-                query += ' LIMIT ? OFFSET ?';
-                params.push(limit, offset);
+                // Insert the LIMIT and OFFSET directly into the query instead of using placeholders
+                query += ` LIMIT ${limit} OFFSET ${offset}`;
             }
 
             const [rows] = await pool.execute(query, params);
