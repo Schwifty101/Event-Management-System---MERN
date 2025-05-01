@@ -89,24 +89,17 @@ export const teamService = {
 };
 
 export const sponsorshipService = {
-    getAll: (filters) => api.get('/sponsorships', { params: filters }),
-    getById: (id, details = false) => api.get(`/sponsorships/${id}`, {
-        params: { details }
-    }),
-    getMySponsorships: () => api.get('/sponsorships/me'),
+    getAll: () => api.get('/sponsorships'),
+    getById: (id) => api.get(`/sponsorships/${id}`),
     getByEventId: (eventId) => api.get(`/sponsorships/event/${eventId}`),
+    getMySponsorships: () => api.get('/sponsorships/me'),
     create: (data) => api.post('/sponsorships', data),
     update: (id, data) => api.put(`/sponsorships/${id}`, data),
-    updateStatus: (id, status, notes) => api.put(`/sponsorships/${id}/status`, { status, notes }),
     delete: (id) => api.delete(`/sponsorships/${id}`),
-    // Payment related functions
+    updateStatus: (id, status) => api.put(`/sponsorships/${id}/status`, { status }),
     addPayment: (sponsorshipId, data) => api.post(`/sponsorships/${sponsorshipId}/payments`, data),
     getPayments: (sponsorshipId) => api.get(`/sponsorships/${sponsorshipId}/payments`),
-    // Promotion related functions
-    addPromotion: (sponsorshipId, data) => api.post(`/sponsorships/${sponsorshipId}/promotions`, data),
     getPromotions: (sponsorshipId) => api.get(`/sponsorships/${sponsorshipId}/promotions`),
-    // Reports
-    generateReport: (filters) => api.get('/sponsorships/reports/summary', { params: filters }),
 };
 
 export const sponsorPackageService = {
@@ -118,13 +111,13 @@ export const sponsorPackageService = {
 };
 
 export const sponsorProfileService = {
-    getMyProfile: () => api.get('/sponsor-profiles/me'),
-    getAllProfiles: (options) => api.get('/sponsor-profiles', { params: options }),
-    getProfileById: (id, type = 'profile') => api.get(`/sponsor-profiles/${id}`, {
+    getMyProfile: () => api.get('/sponsors/profile'),
+    getAllProfiles: (options) => api.get('/sponsors/profiles', { params: options }),
+    getProfileById: (id, type = 'profile') => api.get(`/sponsors/profiles/${id}`, {
         params: { type }
     }),
-    createOrUpdateProfile: (data) => api.post('/sponsor-profiles', data),
-    deleteProfile: () => api.delete('/sponsor-profiles/me'),
+    createOrUpdateProfile: (data) => api.post('/sponsors/profile', data),
+    deleteProfile: () => api.delete('/sponsors/profile'),
 };
 
 export const accommodationService = {
@@ -139,7 +132,6 @@ export const accommodationService = {
         }),
     getAvailabilitySummary: (eventId) =>
         api.get('/accommodations/availability/summary', { params: { eventId } }),
-    // Updated booking method to correctly handle the endpoint structure
     bookings: (data) => api.post('/accommodations/bookings', data),
     getMyBookings: () => api.get('/accommodations/bookings/my'),
     getBookingById: (id) => api.get(`/accommodations/bookings/${id}`),

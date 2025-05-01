@@ -11,13 +11,13 @@ import { authenticate, authorize } from '../middleware/authMiddleware.js';
 const router = express.Router();
 
 // Routes requiring authentication
-router.post('/', authenticate, createOrUpdateProfile);
-router.get('/me', authenticate, getMyProfile);
-router.delete('/me', authenticate, deleteProfile);
+router.post('/profile', authenticate, createOrUpdateProfile);
+router.get('/profile', authenticate, getMyProfile);
+router.delete('/profile', authenticate, deleteProfile);
 
 // Admin only routes
-router.get('/', authenticate, authorize(['admin']), getAllProfiles);
-router.get('/:id', authenticate, authorize(['admin']), getProfileById);
-router.delete('/:id', authenticate, authorize(['admin']), deleteProfile);
+router.get('/profiles', authenticate, authorize(['admin']), getAllProfiles);
+router.get('/profiles/:id', authenticate, authorize(['admin']), getProfileById);
+router.delete('/profiles/:id', authenticate, authorize(['admin']), deleteProfile);
 
 export default router;

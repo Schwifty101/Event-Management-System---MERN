@@ -1,275 +1,208 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import {
-    Box,
+    Container,
     Typography,
     Grid,
-    Paper,
     Card,
     CardContent,
-    CardActionArea,
     Button,
-    Divider,
-    List,
-    ListItem,
-    ListItemIcon,
-    ListItemText,
-    Chip,
-    CircularProgress
+    Box,
+    Paper,
+    Table,
+    TableBody,
+    TableCell,
+    TableContainer,
+    TableHead,
+    TableRow,
+    Chip
 } from '@mui/material';
 import {
-    Business as BusinessIcon,
-    Payments as PaymentsIcon,
-    Assignment as AssignmentIcon,
-    BarChart as ChartIcon,
-    EventNote as EventIcon
+    MonetizationOn,
+    Description,
+    Person,
+    BarChart,
+    Inventory
 } from '@mui/icons-material';
-import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../../context/AuthContext';
-import { sponsorProfileService, sponsorshipService } from '../../services/api';
+import { sponsorshipService } from '../../services/api';
 
 const SponsorDashboard = () => {
-    const { user } = useAuth();
-    const navigate = useNavigate();
-    const [loading, setLoading] = useState(true);
-    const [profile, setProfile] = useState(null);
     const [sponsorships, setSponsorships] = useState([]);
-    const [stats, setStats] = useState({
-        totalSponsored: 0,
-        activeContracts: 0,
-        pendingPayments: 0
-    });
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
 
     useEffect(() => {
-        const fetchSponsorData = async () => {
+        const fetchSponsorships = async () => {
             try {
                 setLoading(true);
-
-                // Fetch sponsor profile
-                const profileRes = await sponsorProfileService.getMyProfile();
-                setProfile(profileRes.data.profile);
-
-                // Fetch sponsorships
-                const sponsorshipsRes = await sponsorshipService.getMySponsorships();
-                setSponsorships(sponsorshipsRes.data.sponsorships || []);
-
-                // Calculate stats
-                const active = sponsorshipsRes.data.sponsorships?.filter(s =>
-                    s.status === 'active' || s.status === 'approved').length || 0;
-
-                const total = sponsorshipsRes.data.sponsorships?.reduce(
-                    (sum, s) => sum + parseFloat(s.total_amount), 0) || 0;
-
-                setStats({
-                    totalSponsored: total,
-                    activeContracts: active,
-                    pendingPayments: sponsorshipsRes.data.sponsorships?.filter(s =>
-                        s.status === 'approved').length || 0
-                });
-
-            } catch (error) {
-                console.error('Error fetching sponsor data:', error);
-                // If no profile exists, user needs to create one
-                if (error.response && error.response.status === 404) {
-                    setProfile(null);
-                }
+                const response = await sponsorshipService.getMySponsorships();
+                setSponsorships(response.data.sponsorships || []);
+            } catch (err) {
+                setError('Failed to load sponsorships. Please try again later.');
+                console.error('Error fetching sponsorships:', err);
             } finally {
                 setLoading(false);
             }
         };
 
-        fetchSponsorData();
+        fetchSponsorships();
     }, []);
 
-    const handleNavigate = (path) => {
-        navigate(path);
+    const getStatusChipColor = (status) => {
+        switch (status) {
+            case 'pending': return 'warning';
+            case 'approved': return 'success';
+            case 'rejected': return 'error';
+            case 'completed': return 'info';
+            default: return 'default';
+        }
     };
 
-    if (loading) {
-        return (
-            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '50vh' }}>
-                <CircularProgress />
-            </Box>
-        );
-    }
-
-    // If no profile exists, prompt user to create one
-    if (!profile) {
-        return (
-            <Box sx={{ p: 3 }}>
-                <Paper sx={{ p: 3, textAlign: 'center' }}>
-                    <BusinessIcon sx={{ fontSize: 60, color: 'primary.main', mb: 2 }} />
-                    <Typography variant="h5" gutterBottom>
-                        Welcome to Sponsorship Management
-                    </Typography>
-                    <Typography variant="body1" paragraph>
-                        To get started as a sponsor, you need to create your organization profile first.
-                    </Typography>
-                    <Button
-                        variant="contained"
-                        color="primary"
-                        onClick={() => navigate('/sponsor/profile/create')}
-                    >
-                        Create Sponsor Profile
-                    </Button>
-                </Paper>
-            </Box>
-        );
-    }
-
     return (
-        <Box sx={{ p: 3 }}>
-            <Typography variant="h4" gutterBottom>
+        <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
+            <Typography variant="h4" component="h1" gutterBottom>
                 Sponsor Dashboard
             </Typography>
-            <Typography variant="subtitle1" color="textSecondary" paragraph>
-                Welcome back, {profile.organization_name}
-            </Typography>
 
-            {/* Stats Cards */}
-            <Grid container spacing={3} sx={{ mb: 4 }}>
-                <Grid item xs={12} md={4}>
-                    <Paper sx={{ p: 2 }}>
-                        <Typography variant="subtitle1" color="textSecondary">
-                            Total Sponsored Amount
-                        </Typography>
-                        <Typography variant="h4">
-                            ${stats.totalSponsored.toLocaleString()}
-                        </Typography>
+            <Grid container spacing={3}>
+                {/* Quick links */}
+                <Grid item xs={12}>
+                    <Paper elevation={3} sx={{ p: 2, display: 'flex', flexDirection: 'column' }}>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
+                            <Typography variant="h6" component="h2">
+                                Quick Actions
+                            </Typography>
+                        </Box>
+                        <Grid container spacing={2}>
+                            <Grid item xs={6} sm={3}>
+                                <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', p: 2 }}>
+                                    <Person sx={{ fontSize: 40, color: 'primary.main', mb: 1 }} />
+                                    <Button
+                                        component={Link}
+                                        to="/sponsor/profile"
+                                        variant="outlined"
+                                        color="primary"
+                                        fullWidth
+                                    >
+                                        Profile
+                                    </Button>
+                                </Card>
+                            </Grid>
+                            <Grid item xs={6} sm={3}>
+                                <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', p: 2 }}>
+                                    <Description sx={{ fontSize: 40, color: 'primary.main', mb: 1 }} />
+                                    <Button
+                                        component={Link}
+                                        to="/sponsor/contracts"
+                                        variant="outlined"
+                                        color="primary"
+                                        fullWidth
+                                    >
+                                        Contracts
+                                    </Button>
+                                </Card>
+                            </Grid>
+                            <Grid item xs={6} sm={3}>
+                                <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', p: 2 }}>
+                                    <Inventory sx={{ fontSize: 40, color: 'primary.main', mb: 1 }} />
+                                    <Button
+                                        component={Link}
+                                        to="/sponsor/packages"
+                                        variant="outlined"
+                                        color="primary"
+                                        fullWidth
+                                    >
+                                        Packages
+                                    </Button>
+                                </Card>
+                            </Grid>
+                            <Grid item xs={6} sm={3}>
+                                <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', p: 2 }}>
+                                    <BarChart sx={{ fontSize: 40, color: 'primary.main', mb: 1 }} />
+                                    <Button
+                                        component={Link}
+                                        to="/sponsor/reports"
+                                        variant="outlined"
+                                        color="primary"
+                                        fullWidth
+                                    >
+                                        Reports
+                                    </Button>
+                                </Card>
+                            </Grid>
+                        </Grid>
                     </Paper>
                 </Grid>
-                <Grid item xs={12} md={4}>
-                    <Paper sx={{ p: 2 }}>
-                        <Typography variant="subtitle1" color="textSecondary">
-                            Active Contracts
-                        </Typography>
-                        <Typography variant="h4">
-                            {stats.activeContracts}
-                        </Typography>
-                    </Paper>
-                </Grid>
-                <Grid item xs={12} md={4}>
-                    <Paper sx={{ p: 2 }}>
-                        <Typography variant="subtitle1" color="textSecondary">
-                            Pending Payments
-                        </Typography>
-                        <Typography variant="h4">
-                            {stats.pendingPayments}
-                        </Typography>
+
+                {/* Recent Sponsorships */}
+                <Grid item xs={12}>
+                    <Paper elevation={3} sx={{ p: 2, display: 'flex', flexDirection: 'column' }}>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
+                            <Typography variant="h6" component="h2">
+                                My Sponsorships
+                            </Typography>
+                            <Button
+                                component={Link}
+                                to="/sponsor/sponsorships"
+                                variant="contained"
+                                color="primary"
+                                startIcon={<MonetizationOn />}
+                            >
+                                Manage Sponsorships
+                            </Button>
+                        </Box>
+
+                        {loading ? (
+                            <Typography>Loading sponsorships...</Typography>
+                        ) : error ? (
+                            <Typography color="error">{error}</Typography>
+                        ) : sponsorships.length === 0 ? (
+                            <Typography>You don't have any sponsorships yet. Create one to start supporting events!</Typography>
+                        ) : (
+                            <TableContainer>
+                                <Table>
+                                    <TableHead>
+                                        <TableRow>
+                                            <TableCell>Event</TableCell>
+                                            <TableCell>Package</TableCell>
+                                            <TableCell>Amount</TableCell>
+                                            <TableCell>Status</TableCell>
+                                            <TableCell>Actions</TableCell>
+                                        </TableRow>
+                                    </TableHead>
+                                    <TableBody>
+                                        {sponsorships.slice(0, 5).map((sponsorship) => (
+                                            <TableRow key={sponsorship.id}>
+                                                <TableCell>{sponsorship.eventName || 'Unknown Event'}</TableCell>
+                                                <TableCell>{sponsorship.packageName || 'Custom Package'}</TableCell>
+                                                <TableCell>${sponsorship.amount}</TableCell>
+                                                <TableCell>
+                                                    <Chip
+                                                        label={sponsorship.status}
+                                                        color={getStatusChipColor(sponsorship.status)}
+                                                        size="small"
+                                                    />
+                                                </TableCell>
+                                                <TableCell>
+                                                    <Button
+                                                        component={Link}
+                                                        to={`/sponsor/sponsorships/${sponsorship.id}`}
+                                                        variant="outlined"
+                                                        size="small"
+                                                    >
+                                                        View
+                                                    </Button>
+                                                </TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                            </TableContainer>
+                        )}
                     </Paper>
                 </Grid>
             </Grid>
-
-            {/* Quick Actions */}
-            <Typography variant="h6" gutterBottom>
-                Quick Actions
-            </Typography>
-            <Grid container spacing={3} sx={{ mb: 4 }}>
-                <Grid item xs={12} md={3}>
-                    <Card>
-                        <CardActionArea onClick={() => handleNavigate('/sponsor/profile')}>
-                            <CardContent sx={{ textAlign: 'center' }}>
-                                <BusinessIcon sx={{ fontSize: 40, color: 'primary.main', mb: 1 }} />
-                                <Typography variant="h6">
-                                    Organization Profile
-                                </Typography>
-                            </CardContent>
-                        </CardActionArea>
-                    </Card>
-                </Grid>
-                <Grid item xs={12} md={3}>
-                    <Card>
-                        <CardActionArea onClick={() => handleNavigate('/sponsor/packages')}>
-                            <CardContent sx={{ textAlign: 'center' }}>
-                                <AssignmentIcon sx={{ fontSize: 40, color: 'primary.main', mb: 1 }} />
-                                <Typography variant="h6">
-                                    Sponsorship Packages
-                                </Typography>
-                            </CardContent>
-                        </CardActionArea>
-                    </Card>
-                </Grid>
-                <Grid item xs={12} md={3}>
-                    <Card>
-                        <CardActionArea onClick={() => handleNavigate('/sponsor/sponsorships')}>
-                            <CardContent sx={{ textAlign: 'center' }}>
-                                <PaymentsIcon sx={{ fontSize: 40, color: 'primary.main', mb: 1 }} />
-                                <Typography variant="h6">
-                                    My Sponsorships
-                                </Typography>
-                            </CardContent>
-                        </CardActionArea>
-                    </Card>
-                </Grid>
-                <Grid item xs={12} md={3}>
-                    <Card>
-                        <CardActionArea onClick={() => handleNavigate('/sponsor/reports')}>
-                            <CardContent sx={{ textAlign: 'center' }}>
-                                <ChartIcon sx={{ fontSize: 40, color: 'primary.main', mb: 1 }} />
-                                <Typography variant="h6">
-                                    Reports & Analytics
-                                </Typography>
-                            </CardContent>
-                        </CardActionArea>
-                    </Card>
-                </Grid>
-            </Grid>
-
-            {/* Recent Sponsorships */}
-            <Typography variant="h6" gutterBottom>
-                Recent Sponsorships
-            </Typography>
-            <Paper sx={{ p: 2 }}>
-                {sponsorships.length > 0 ? (
-                    <List>
-                        {sponsorships.slice(0, 5).map((sponsorship) => (
-                            <React.Fragment key={sponsorship.id}>
-                                <ListItem
-                                    button
-                                    onClick={() => navigate(`/sponsor/sponsorships/${sponsorship.id}`)}
-                                >
-                                    <ListItemIcon>
-                                        <EventIcon />
-                                    </ListItemIcon>
-                                    <ListItemText
-                                        primary={sponsorship.event_title}
-                                        secondary={`Package: ${sponsorship.package_name}`}
-                                    />
-                                    <Box>
-                                        <Chip
-                                            label={sponsorship.status.toUpperCase()}
-                                            color={
-                                                sponsorship.status === 'active' ? 'success' :
-                                                    sponsorship.status === 'approved' ? 'primary' :
-                                                        sponsorship.status === 'pending' ? 'warning' : 'default'
-                                            }
-                                            size="small"
-                                        />
-                                        <Typography variant="body2" color="textSecondary" sx={{ mt: 1 }}>
-                                            ${parseFloat(sponsorship.total_amount).toLocaleString()}
-                                        </Typography>
-                                    </Box>
-                                </ListItem>
-                                <Divider />
-                            </React.Fragment>
-                        ))}
-                    </List>
-                ) : (
-                    <Box sx={{ p: 2, textAlign: 'center' }}>
-                        <Typography variant="body1" color="textSecondary">
-                            You haven't made any sponsorships yet.
-                        </Typography>
-                        <Button
-                            variant="contained"
-                            color="primary"
-                            sx={{ mt: 2 }}
-                            onClick={() => navigate('/sponsor/packages')}
-                        >
-                            Browse Sponsorship Packages
-                        </Button>
-                    </Box>
-                )}
-            </Paper>
-        </Box>
+        </Container>
     );
 };
 

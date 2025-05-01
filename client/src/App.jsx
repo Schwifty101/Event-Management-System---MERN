@@ -154,6 +154,8 @@ function App() {
                                     <Route path="/sponsor/dashboard" element={<SponsorDashboard />} />
                                     <Route path="/sponsor/profile" element={<SponsorProfile />} />
                                     <Route path="/sponsor/contracts" element={<SponsorshipContracts />} />
+                                    <Route path="/sponsor/sponsorships" element={<SponsorshipContracts />} />
+                                    <Route path="/sponsor/sponsorships/:id" element={<SponsorshipContracts />} />
                                     <Route path="/sponsor/packages" element={<SponsorshipPackages />} />
                                     <Route path="/sponsor/reports" element={<SponsorReports />} />
                                 </Route>
