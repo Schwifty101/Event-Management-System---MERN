@@ -239,10 +239,8 @@ const AccommodationBooking = () => {
                 special_requests: specialRequests
             };
 
-            const response = await accommodationService.book(
-                selectedAccommodation.id,
-                bookingData
-            );
+            // Updated API call to match backend route structure
+            const response = await accommodationService.bookings(bookingData);
 
             if (response && response.data.booking) {
                 setBookingId(response.data.booking.id);

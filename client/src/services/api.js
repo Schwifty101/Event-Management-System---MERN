@@ -46,8 +46,9 @@ api.interceptors.response.use(
 export const userService = {
     login: (credentials) => api.post('/users/login', credentials),
     register: (userData) => api.post('/users/register', userData),
-    getProfile: () => api.get('/users/profile'),
-    updateProfile: (data) => api.put('/users/profile', data),
+    getProfile: () => api.get('/users/me'),
+    updateProfile: (data) => api.put(`/users/${data.id || 'profile'}`, data),
+    changePassword: (data) => api.post('/users/change-password', data),
 };
 
 export const eventService = {
@@ -127,12 +128,25 @@ export const sponsorProfileService = {
 };
 
 export const accommodationService = {
-    getAll: () => api.get('/accommodations'),
+    getAll: (params) => api.get('/accommodations', { params }),
     getById: (id) => api.get(`/accommodations/${id}`),
     create: (data) => api.post('/accommodations', data),
     update: (id, data) => api.put(`/accommodations/${id}`, data),
     delete: (id) => api.delete(`/accommodations/${id}`),
-    book: (accommodationId, data) => api.post(`/accommodations/${accommodationId}/bookings`, data),
+    getAvailableRooms: (accommodationId, checkInDate, checkOutDate) =>
+        api.get(`/accommodations/${accommodationId}/available-rooms`, {
+            params: { check_in_date: checkInDate, check_out_date: checkOutDate }
+        }),
+    getAvailabilitySummary: (eventId) =>
+        api.get('/accommodations/availability/summary', { params: { eventId } }),
+    // Updated booking method to correctly handle the endpoint structure
+    bookings: (data) => api.post('/accommodations/bookings', data),
+    getMyBookings: () => api.get('/accommodations/bookings/my'),
+    getBookingById: (id) => api.get(`/accommodations/bookings/${id}`),
+    cancelBooking: (id) => api.put(`/accommodations/bookings/${id}/cancel`),
+    updateBookingStatus: (id, status) => api.put(`/accommodations/bookings/${id}/status`, { status }),
+    addPayment: (bookingId, data) => api.post(`/accommodations/bookings/${bookingId}/payments`, data),
+    getPayments: (bookingId) => api.get(`/accommodations/bookings/${bookingId}/payments`),
 };
 
 export const paymentService = {

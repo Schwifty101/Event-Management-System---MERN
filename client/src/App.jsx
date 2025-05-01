@@ -14,6 +14,7 @@ import UserManagement from './components/admin/UserManagement';
 import RolePermissionManagement from './components/admin/RolePermissionManagement';
 import AnalyticsDashboard from './components/admin/AnalyticsDashboard';
 import FinanceDashboard from './components/admin/FinanceDashboard';
+import AdminAccommodationManagement from './components/admin/AdminAccommodationManagement';
 
 // Import Sponsor components
 import SponsorDashboard from './components/sponsor/SponsorDashboard';
@@ -35,6 +36,9 @@ import TeamDetails from './components/teams/TeamDetails';
 
 // Import Accommodation Booking components
 import AccommodationBooking from './components/accommodation/AccommodationBooking';
+
+// Import User Profile component
+import UserProfile from './components/user/UserProfile';
 
 // Debug component to show user role
 const UserRoleDebug = () => {
@@ -127,6 +131,7 @@ function App() {
                                     <Route path="/admin/finance" element={<FinanceDashboard />} />
                                     <Route path="/admin/events" element={<EventManagement />} />
                                     <Route path="/admin/teams" element={<TeamManagement />} />
+                                    <Route path="/admin/accommodations" element={<AdminAccommodationManagement />} />
                                 </Route>
 
                                 {/* Organizer routes */}
@@ -184,7 +189,7 @@ function App() {
                                 <Route path="/events/:eventId" element={<EventDetails />} />
 
                                 {/* Common protected routes */}
-                                <Route path="/profile" element={<div>User Profile</div>} />
+                                <Route path="/profile" element={<UserProfile />} />
                                 <Route path="/unauthorized" element={<div>Access Denied</div>} />
                             </Route>
                         </Route>

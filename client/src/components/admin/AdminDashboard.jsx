@@ -128,16 +128,6 @@ const AdminDashboard = () => {
                 </Grid>
                 <Grid md={4} sm={6} xs={12}>
                     <DashboardCard
-                        title="Total Revenue"
-                        value={`$${dashboardData.totalRevenue?.toLocaleString() || 0}`}
-                        icon={<Payments />}
-                        color="warning"
-                        loading={loading}
-                        onClick={() => navigate('/admin/finances')}
-                    />
-                </Grid>
-                <Grid md={4} sm={6} xs={12}>
-                    <DashboardCard
                         title="Total Teams"
                         value={dashboardData.totalTeams}
                         icon={<Group />}
@@ -165,19 +155,6 @@ const AdminDashboard = () => {
                         loading={loading}
                         onClick={() => navigate('/admin/analytics')}
                     />
-                </Grid>
-            </Grid>
-
-            {/* Additional widgets and reports would go here */}
-            <Grid container spacing={3} sx={{ mt: 2 }}>
-                <Grid xs={12}>
-                    <Paper sx={{ p: 3 }}>
-                        <Typography variant="h6" gutterBottom>Recent Activity</Typography>
-                        {/* Activity log or recent actions would go here */}
-                        <Typography variant="body2" color="text.secondary">
-                            Recent system activities will be displayed here.
-                        </Typography>
-                    </Paper>
                 </Grid>
             </Grid>
         </Box>
