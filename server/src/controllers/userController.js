@@ -21,15 +21,23 @@ export const createUser = async (req, res) => {
             return res.status(409).json({ message: 'User with this email already exists' });
         }
 
-        // Validate role - only admin can create users with specific roles
+        // Validate role - allow specific roles for public registration but prevent admin registration
         let userRole = 'participant'; // Default role
         if (role) {
             // If a specific role is requested, check if the request comes from an admin
             if (req.user && req.user.role === 'admin') {
+                // Admin can assign any role
                 userRole = role;
             } else if (req.path.includes('/register')) {
-                // For public registration, ignore requested role
-                userRole = 'participant';
+                // For public registration, allow specific roles but not admin
+                const allowedPublicRoles = ['participant', 'organizer', 'sponsor', 'judge'];
+                if (allowedPublicRoles.includes(role)) {
+                    userRole = role;
+                }
+                // If role is admin or invalid, default to participant
+                if (role === 'admin' || !allowedPublicRoles.includes(role)) {
+                    userRole = 'participant';
+                }
             } else {
                 return res.status(403).json({ message: 'Only admins can assign roles' });
             }

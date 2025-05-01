@@ -6,7 +6,7 @@ import { EventCategory } from '../models/eventCategoryModel.js';
  */
 export const getAllEvents = async (req, res) => {
     try {
-        const { page, limit, category, search, start_date, end_date } = req.query;
+        const { page, limit, category, search, start_date, end_date, team_event } = req.query;
 
         // Validate category if provided
         if (category) {
@@ -24,6 +24,12 @@ export const getAllEvents = async (req, res) => {
             start_date,
             end_date
         };
+
+        // Add team_event filter if provided
+        if (team_event !== undefined) {
+            // Convert string "true"/"false" to boolean
+            options.team_event = team_event === 'true';
+        }
 
         const events = await Event.findAll(options);
 
@@ -61,7 +67,9 @@ export const createEvent = async (req, res) => {
     try {
         const {
             title, description, location, start_date, end_date,
-            capacity, category, image_url
+            capacity, category, image_url, rules,
+            team_event, min_team_size, max_team_size,
+            registration_fee, max_participants
         } = req.body;
 
         // Validation
@@ -118,10 +126,16 @@ export const createEvent = async (req, res) => {
         const eventData = {
             title,
             description,
+            rules,
             location,
             start_date,
             end_date,
             capacity: capacity || null,
+            max_participants: max_participants || null,
+            registration_fee: registration_fee || 0,
+            team_event: team_event || false,
+            min_team_size: min_team_size || 1,
+            max_team_size: max_team_size || 1,
             organizer_id,
             category: category || 'Other',
             image_url: image_url || null
@@ -147,7 +161,9 @@ export const updateEvent = async (req, res) => {
         const { id } = req.params;
         const {
             title, description, location, start_date, end_date,
-            capacity, category, image_url
+            capacity, category, image_url, rules,
+            team_event, min_team_size, max_team_size,
+            registration_fee, max_participants
         } = req.body;
 
         // Verify event exists
@@ -204,10 +220,16 @@ export const updateEvent = async (req, res) => {
         const eventData = {
             title,
             description,
+            rules,
             location,
             start_date,
             end_date,
             capacity,
+            max_participants,
+            registration_fee,
+            team_event,
+            min_team_size,
+            max_team_size,
             category,
             image_url
         };

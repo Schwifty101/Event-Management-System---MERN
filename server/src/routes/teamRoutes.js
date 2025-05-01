@@ -8,16 +8,18 @@ import {
     addTeamMember,
     removeTeamMember,
     transferLeadership,
-    deleteTeam
+    deleteTeam,
+    getOrganizerTeams
 } from '../controllers/teamController.js';
-import { authenticate, authorize } from '../middleware/authMiddleware.js';
+import { authenticate } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 
 // Routes for authenticated users
 router.get('/my-teams', authenticate, getUserTeams);
-router.get('/:id', authenticate, getTeamById);
+router.get('/organizer', authenticate, getOrganizerTeams);
 router.get('/event/:eventId', authenticate, getTeamsByEventId);
+router.get('/:id', authenticate, getTeamById);
 
 // Team management routes
 router.post('/', authenticate, createTeam);

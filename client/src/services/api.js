@@ -2,7 +2,7 @@ import axios from 'axios';
 
 // Create an axios instance with default config
 const api = axios.create({
-    baseURL: import.meta.env.VITE_API_URL || 'http://localhost:3000/api',
+    baseURL: '/api', // Changed to use relative path that works with the proxy
     headers: {
         'Content-Type': 'application/json',
     },
@@ -51,7 +51,7 @@ export const userService = {
 };
 
 export const eventService = {
-    getAll: () => api.get('/events'),
+    getAll: (params) => api.get('/events', { params }),
     getById: (id) => api.get(`/events/${id}`),
     create: (data) => api.post('/events', data),
     update: (id, data) => api.put(`/events/${id}`, data),
@@ -75,29 +75,55 @@ export const roundService = {
 };
 
 export const teamService = {
-    getAll: () => api.get('/teams'),
+    getMyTeams: () => api.get('/teams/my-teams'),
     getById: (id) => api.get(`/teams/${id}`),
+    getByEventId: (eventId) => api.get(`/teams/event/${eventId}`),
+    getTeamMembers: (teamId) => api.get(`/teams/${teamId}`),
     create: (data) => api.post('/teams', data),
     update: (id, data) => api.put(`/teams/${id}`, data),
     delete: (id) => api.delete(`/teams/${id}`),
-    joinTeam: (teamId) => api.post(`/teams/${teamId}/members`),
-    leaveTeam: (teamId) => api.delete(`/teams/${teamId}/members/me`),
+    addMember: (teamId, userId, status) => api.post(`/teams/${teamId}/members`, { userId, status }),
+    removeMember: (teamId, userId) => api.delete(`/teams/${teamId}/members/${userId}`),
+    transferLeadership: (teamId, newLeaderId) => api.post(`/teams/${teamId}/transfer-leadership`, { newLeaderId }),
 };
 
 export const sponsorshipService = {
-    getAll: () => api.get('/sponsorships'),
-    getById: (id) => api.get(`/sponsorships/${id}`),
+    getAll: (filters) => api.get('/sponsorships', { params: filters }),
+    getById: (id, details = false) => api.get(`/sponsorships/${id}`, {
+        params: { details }
+    }),
+    getMySponsorships: () => api.get('/sponsorships/me'),
+    getByEventId: (eventId) => api.get(`/sponsorships/event/${eventId}`),
     create: (data) => api.post('/sponsorships', data),
     update: (id, data) => api.put(`/sponsorships/${id}`, data),
+    updateStatus: (id, status, notes) => api.put(`/sponsorships/${id}/status`, { status, notes }),
     delete: (id) => api.delete(`/sponsorships/${id}`),
+    // Payment related functions
+    addPayment: (sponsorshipId, data) => api.post(`/sponsorships/${sponsorshipId}/payments`, data),
+    getPayments: (sponsorshipId) => api.get(`/sponsorships/${sponsorshipId}/payments`),
+    // Promotion related functions
+    addPromotion: (sponsorshipId, data) => api.post(`/sponsorships/${sponsorshipId}/promotions`, data),
+    getPromotions: (sponsorshipId) => api.get(`/sponsorships/${sponsorshipId}/promotions`),
+    // Reports
+    generateReport: (filters) => api.get('/sponsorships/reports/summary', { params: filters }),
 };
 
 export const sponsorPackageService = {
-    getAll: () => api.get('/sponsor-packages'),
+    getAll: (isActive) => api.get('/sponsor-packages', { params: { isActive } }),
     getById: (id) => api.get(`/sponsor-packages/${id}`),
     create: (data) => api.post('/sponsor-packages', data),
     update: (id, data) => api.put(`/sponsor-packages/${id}`, data),
     delete: (id) => api.delete(`/sponsor-packages/${id}`),
+};
+
+export const sponsorProfileService = {
+    getMyProfile: () => api.get('/sponsor-profiles/me'),
+    getAllProfiles: (options) => api.get('/sponsor-profiles', { params: options }),
+    getProfileById: (id, type = 'profile') => api.get(`/sponsor-profiles/${id}`, {
+        params: { type }
+    }),
+    createOrUpdateProfile: (data) => api.post('/sponsor-profiles', data),
+    deleteProfile: () => api.delete('/sponsor-profiles/me'),
 };
 
 export const accommodationService = {

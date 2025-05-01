@@ -101,6 +101,39 @@ export const getUserTeams = async (req, res) => {
 };
 
 /**
+ * Get teams for events organized by the authenticated user
+ */
+export const getOrganizerTeams = async (req, res) => {
+    try {
+        const organizerId = req.user.id;
+
+        // First, get all events where this user is an organizer
+        const organizedEvents = await Event.findByOrganizerId(organizerId);
+
+        if (!organizedEvents || organizedEvents.length === 0) {
+            return res.status(200).json({ teams: [] });
+        }
+
+        // Extract the event IDs
+        const eventIds = organizedEvents.map(event => event.id);
+
+        // Get teams for all these events
+        const teams = [];
+        for (const eventId of eventIds) {
+            const eventTeams = await Team.findByEventId(eventId);
+            if (eventTeams && eventTeams.length > 0) {
+                teams.push(...eventTeams);
+            }
+        }
+
+        res.status(200).json({ teams });
+    } catch (error) {
+        console.error('Error in getOrganizerTeams:', error);
+        res.status(500).json({ message: 'Server error', error: error.message });
+    }
+};
+
+/**
  * Update team information
  */
 export const updateTeam = async (req, res) => {

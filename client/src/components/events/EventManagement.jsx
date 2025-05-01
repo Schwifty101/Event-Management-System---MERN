@@ -42,7 +42,7 @@ import { LocalizationProvider } from '@mui/x-date-pickers';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import EventCalendar from './EventCalendar';
 
-const EventManagement = () => {
+const EventManagement = ({ createTeamEvent }) => {
     const { user } = useAuth();
     const navigate = useNavigate();
     const [loading, setLoading] = useState(true);
@@ -56,13 +56,13 @@ const EventManagement = () => {
         rules: '',
         location: '',
         start_date: new Date(),
-        end_date: new Date(),
+        end_date: new Date(new Date().getTime() + 24 * 60 * 60 * 1000), // Next day
         capacity: 100,
         max_participants: 50,
         registration_fee: 0,
-        team_event: false,
-        min_team_size: 1,
-        max_team_size: 1,
+        team_event: createTeamEvent || false,
+        min_team_size: createTeamEvent ? 2 : 1,
+        max_team_size: createTeamEvent ? 5 : 1,
         category: 'Tech Events'
     });
     const [eventToDelete, setEventToDelete] = useState(null);
@@ -133,9 +133,9 @@ const EventManagement = () => {
             capacity: 100,
             max_participants: 50,
             registration_fee: 0,
-            team_event: false,
-            min_team_size: 1,
-            max_team_size: 1,
+            team_event: createTeamEvent || false,
+            min_team_size: createTeamEvent ? 2 : 1,
+            max_team_size: createTeamEvent ? 5 : 1,
             category: 'Tech Events'
         });
         setDialogMode('add');
@@ -201,6 +201,9 @@ const EventManagement = () => {
                 start_date: currentEvent.start_date.toISOString(),
                 end_date: currentEvent.end_date.toISOString()
             };
+
+            // Log the event data being sent to server - for debugging
+            console.log('Submitting event with data:', eventData);
 
             let response;
             if (dialogMode === 'add') {

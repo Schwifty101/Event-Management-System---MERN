@@ -10,14 +10,14 @@ export class Event {
         try {
             // Format dates to MySQL compatible format if they're in ISO format
             const formattedEventData = { ...eventData };
-            
+
             if (formattedEventData.start_date) {
                 const startDate = new Date(formattedEventData.start_date);
                 if (!isNaN(startDate)) {
                     formattedEventData.start_date = startDate.toISOString().slice(0, 19).replace('T', ' ');
                 }
             }
-            
+
             if (formattedEventData.end_date) {
                 const endDate = new Date(formattedEventData.end_date);
                 if (!isNaN(endDate)) {
@@ -113,10 +113,18 @@ export class Event {
                 queryParams.push(options.end_date);
             }
 
-            // Add filter for team events if provided
+            // Add filter for team events if provided, handling string representations of boolean
             if (options.team_event !== undefined) {
+                // Convert string 'true'/'false' to boolean if necessary
+                const teamEventValue =
+                    typeof options.team_event === 'string'
+                        ? options.team_event.toLowerCase() === 'true'
+                        : Boolean(options.team_event);
+
                 query += ' AND e.team_event = ?';
-                queryParams.push(options.team_event);
+                queryParams.push(teamEventValue);
+
+                console.log(`Filtering for team_event = ${teamEventValue}`);
             }
 
             // Add search by title/description if provided
@@ -154,14 +162,14 @@ export class Event {
         try {
             // Format dates to MySQL compatible format if they're in ISO format
             const formattedEventData = { ...eventData };
-            
+
             if (formattedEventData.start_date) {
                 const startDate = new Date(formattedEventData.start_date);
                 if (!isNaN(startDate)) {
                     formattedEventData.start_date = startDate.toISOString().slice(0, 19).replace('T', ' ');
                 }
             }
-            
+
             if (formattedEventData.end_date) {
                 const endDate = new Date(formattedEventData.end_date);
                 if (!isNaN(endDate)) {
