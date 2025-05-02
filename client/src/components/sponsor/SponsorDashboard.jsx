@@ -19,7 +19,6 @@ import {
 } from '@mui/material';
 import {
     MonetizationOn,
-    Description,
     Person,
     BarChart,
     Inventory
@@ -74,7 +73,7 @@ const SponsorDashboard = () => {
                             </Typography>
                         </Box>
                         <Grid container spacing={2}>
-                            <Grid item xs={6} sm={3}>
+                            <Grid item xs={6} sm={4}>
                                 <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', p: 2 }}>
                                     <Person sx={{ fontSize: 40, color: 'primary.main', mb: 1 }} />
                                     <Button
@@ -88,21 +87,7 @@ const SponsorDashboard = () => {
                                     </Button>
                                 </Card>
                             </Grid>
-                            <Grid item xs={6} sm={3}>
-                                <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', p: 2 }}>
-                                    <Description sx={{ fontSize: 40, color: 'primary.main', mb: 1 }} />
-                                    <Button
-                                        component={Link}
-                                        to="/sponsor/contracts"
-                                        variant="outlined"
-                                        color="primary"
-                                        fullWidth
-                                    >
-                                        Contracts
-                                    </Button>
-                                </Card>
-                            </Grid>
-                            <Grid item xs={6} sm={3}>
+                            <Grid item xs={6} sm={4}>
                                 <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', p: 2 }}>
                                     <Inventory sx={{ fontSize: 40, color: 'primary.main', mb: 1 }} />
                                     <Button
@@ -116,7 +101,7 @@ const SponsorDashboard = () => {
                                     </Button>
                                 </Card>
                             </Grid>
-                            <Grid item xs={6} sm={3}>
+                            <Grid item xs={6} sm={4}>
                                 <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', p: 2 }}>
                                     <BarChart sx={{ fontSize: 40, color: 'primary.main', mb: 1 }} />
                                     <Button
@@ -143,12 +128,12 @@ const SponsorDashboard = () => {
                             </Typography>
                             <Button
                                 component={Link}
-                                to="/sponsor/sponsorships"
+                                to="/sponsor/packages"
                                 variant="contained"
                                 color="primary"
                                 startIcon={<MonetizationOn />}
                             >
-                                Manage Sponsorships
+                                View Sponsorship Packages
                             </Button>
                         </Box>
 
@@ -157,7 +142,7 @@ const SponsorDashboard = () => {
                         ) : error ? (
                             <Typography color="error">{error}</Typography>
                         ) : sponsorships.length === 0 ? (
-                            <Typography>You don't have any sponsorships yet. Create one to start supporting events!</Typography>
+                            <Typography>You don't have any sponsorships yet. View available packages to start supporting events!</Typography>
                         ) : (
                             <TableContainer>
                                 <Table>
@@ -186,11 +171,11 @@ const SponsorDashboard = () => {
                                                 <TableCell>
                                                     <Button
                                                         component={Link}
-                                                        to={`/sponsor/sponsorships/${sponsorship.id}`}
+                                                        to={`/sponsor/packages`}
                                                         variant="outlined"
                                                         size="small"
                                                     >
-                                                        View
+                                                        View Packages
                                                     </Button>
                                                 </TableCell>
                                             </TableRow>

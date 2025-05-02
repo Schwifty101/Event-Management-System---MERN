@@ -54,19 +54,34 @@ export const createSponsorship = async (req, res) => {
         // Validate date format and logic
         const startDate = new Date(contract_start_date);
         const endDate = new Date(contract_end_date);
+
+        // Set time to midnight for proper date comparison without time component
+        startDate.setHours(0, 0, 0, 0);
+        endDate.setHours(0, 0, 0, 0);
+
+        // Get event dates and also set time to midnight
         const eventStartDate = new Date(event.start_date);
         const eventEndDate = new Date(event.end_date);
+        eventStartDate.setHours(0, 0, 0, 0);
+        eventEndDate.setHours(0, 0, 0, 0);
 
         if (isNaN(startDate) || isNaN(endDate)) {
             return res.status(400).json({ message: 'Invalid date format' });
         }
 
-        if (endDate <= startDate) {
+        if (endDate < startDate) {
             return res.status(400).json({ message: 'Contract end date must be after start date' });
         }
 
         // Contract dates should make sense for the event
+        // Adjust the comparison to be inclusive (using <= and >=)
         if (startDate > eventStartDate || endDate < eventEndDate) {
+            console.log('Date validation failed:', {
+                contract_start: startDate.toISOString(),
+                contract_end: endDate.toISOString(),
+                event_start: eventStartDate.toISOString(),
+                event_end: eventEndDate.toISOString()
+            });
             return res.status(400).json({
                 message: 'Contract dates should cover the event dates'
             });

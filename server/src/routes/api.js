@@ -30,7 +30,7 @@ router.use('/judges', judgeRoutes);
 
 // Sponsorship management routes
 router.use('/sponsor-packages', sponsorPackageRoutes);
-router.use('/sponsors', sponsorProfileRoutes); // Changed from sponsor-profiles to sponsors
+router.use('/sponsor-profiles', sponsorProfileRoutes); // Changed from '/sponsors' to '/sponsor-profiles'
 router.use('/sponsorships', sponsorshipRoutes);
 
 // Accommodation management routes

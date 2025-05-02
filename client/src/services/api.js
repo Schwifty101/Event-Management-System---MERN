@@ -9,6 +9,22 @@ const api = axios.create({
     timeout: 10000, // 10 second timeout
 });
 
+// Add a debug interceptor to log all requests
+api.interceptors.request.use(
+    (config) => {
+        console.log('API Request:', {
+            method: config.method.toUpperCase(),
+            url: config.baseURL + config.url,
+            headers: config.headers,
+            data: config.data
+        });
+        return config;
+    },
+    (error) => {
+        return Promise.reject(error);
+    }
+);
+
 // Request interceptor for API calls
 api.interceptors.request.use(
     (config) => {
@@ -29,6 +45,7 @@ api.interceptors.response.use(
         return response;
     },
     async (error) => {
+        console.log('API Error Response:', error.response);
         const originalRequest = error.config;
         // Handle 401 Unauthorized errors
         if (error.response?.status === 401 && !originalRequest._retry) {
@@ -103,21 +120,37 @@ export const sponsorshipService = {
 };
 
 export const sponsorPackageService = {
-    getAll: (isActive) => api.get('/sponsor-packages', { params: { isActive } }),
+    getAll: (isActive) => {
+        // Add debugging to see what's being passed as the isActive parameter
+        console.log('Getting packages with isActive:', isActive);
+
+        // Only include the isActive parameter if it's explicitly provided
+        const params = isActive !== undefined ? { isActive } : {};
+        return api.get('/sponsor-packages', { params });
+    },
     getById: (id) => api.get(`/sponsor-packages/${id}`),
-    create: (data) => api.post('/sponsor-packages', data),
+    create: (data) => {
+        console.log('Creating sponsor package with data:', data);
+        return api.post('/sponsor-packages', data);
+    },
     update: (id, data) => api.put(`/sponsor-packages/${id}`, data),
     delete: (id) => api.delete(`/sponsor-packages/${id}`),
 };
 
 export const sponsorProfileService = {
-    getMyProfile: () => api.get('/sponsors/profile'),
-    getAllProfiles: (options) => api.get('/sponsors/profiles', { params: options }),
-    getProfileById: (id, type = 'profile') => api.get(`/sponsors/profiles/${id}`, {
+    getMyProfile: () => api.get('/sponsor-profiles/profile'),
+    getAllProfiles: (options) => {
+        console.log('Getting all sponsor profiles with options:', options);
+        return api.get('/sponsor-profiles', { params: options });
+    },
+    getProfileById: (id, type = 'profile') => api.get(`/sponsor-profiles/${id}`, {
         params: { type }
     }),
-    createOrUpdateProfile: (data) => api.post('/sponsors/profile', data),
-    deleteProfile: () => api.delete('/sponsors/profile'),
+    createOrUpdateProfile: (data) => {
+        console.log('Creating/updating sponsor profile with data:', data);
+        return api.post('/sponsor-profiles/profile', data);
+    },
+    deleteProfile: () => api.delete('/sponsor-profiles/profile'),
 };
 
 export const accommodationService = {

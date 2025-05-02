@@ -72,10 +72,7 @@ const MainLayout = () => {
                     { text: 'Assigned Events', icon: <EventIcon />, path: '/judge/events' },
                 ];
             case 'sponsor':
-                return [
-                    ...baseItems,
-                    { text: 'Sponsorships', icon: <EventIcon />, path: '/sponsor/sponsorships' },
-                ];
+                return baseItems; // Only include base items (Dashboard and Profile) for sponsors
             case 'participant':
                 return [
                     ...baseItems,

@@ -16,42 +16,61 @@ import { sponsorProfileService } from '../../services/api';
 
 const SponsorProfile = () => {
     const [profile, setProfile] = useState({
-        companyName: '',
+        organization_name: '',
         industry: '',
-        contactEmail: '',
-        contactPhone: '',
+        contact_email: '',
+        contact_phone: '',
         website: '',
-        description: '',
-        logoUrl: '',
+        organization_description: '',
+        logo_url: '',
     });
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState(null);
     const [success, setSuccess] = useState(null);
+    const [isNewProfile, setIsNewProfile] = useState(false);
+    const [userInfo, setUserInfo] = useState({});
 
     useEffect(() => {
         const fetchProfile = async () => {
             try {
                 setLoading(true);
                 const response = await sponsorProfileService.getMyProfile();
-                if (response.data && response.data.profile) {
-                    // Map backend field names to frontend field names
-                    setProfile({
-                        companyName: response.data.profile.organization_name || '',
-                        industry: response.data.profile.industry || '',
-                        contactEmail: response.data.profile.contact_email || '',
-                        contactPhone: response.data.profile.contact_phone || '',
-                        website: response.data.profile.website || '',
-                        description: response.data.profile.organization_description || '',
-                        logoUrl: response.data.profile.logo_url || '',
+                console.log("API Response:", response.data);
+
+                if (response.data && response.data.success) {
+                    const profileData = response.data.data;
+
+                    // Check if profile exists or not
+                    setIsNewProfile(!profileData.exists);
+
+                    // Set user info
+                    setUserInfo({
+                        user_id: profileData.user_id,
+                        name: profileData.name,
+                        email: profileData.email
                     });
+
+                    // Set profile data
+                    setProfile({
+                        organization_name: profileData.organization_name || '',
+                        industry: profileData.industry || '',
+                        contact_email: profileData.contact_email || profileData.email || '',
+                        contact_phone: profileData.contact_phone || '',
+                        website: profileData.website || '',
+                        organization_description: profileData.organization_description || '',
+                        logo_url: profileData.logo_url || '',
+                    });
+
+                    // Show message if needed
+                    if (!profileData.exists) {
+                        setSuccess(response.data.message);
+                    }
                 }
             } catch (err) {
-                if (err.response && err.response.status !== 404) {
-                    setError('Failed to load profile. Please try again later.');
-                    console.error('Error fetching profile:', err);
-                }
-                // 404 is expected if no profile exists yet, so no error message needed
+                console.log("API Error:", err);
+                setError('Failed to load profile. Please try again later.');
+                console.error('Error fetching profile:', err);
             } finally {
                 setLoading(false);
             }
@@ -75,19 +94,14 @@ const SponsorProfile = () => {
             setError(null);
             setSuccess(null);
 
-            // Map frontend field names back to backend field names
-            const backendProfile = {
-                organization_name: profile.companyName,
-                organization_description: profile.description,
-                industry: profile.industry,
-                contact_email: profile.contactEmail,
-                contact_phone: profile.contactPhone,
-                website: profile.website,
-                logo_url: profile.logoUrl
-            };
-
-            await sponsorProfileService.createOrUpdateProfile(backendProfile);
+            // Use the exact field names as expected by the backend
+            const response = await sponsorProfileService.createOrUpdateProfile(profile);
             setSuccess('Profile saved successfully!');
+            setIsNewProfile(false);
+
+            if (response.data && response.data.data) {
+                console.log("Save Response:", response.data);
+            }
         } catch (err) {
             setError('Failed to save profile. Please try again later.');
             console.error('Error saving profile:', err);
@@ -102,6 +116,12 @@ const SponsorProfile = () => {
                 Sponsor Profile
             </Typography>
 
+            {isNewProfile && (
+                <Alert severity="info" sx={{ mb: 3 }}>
+                    Welcome {userInfo.name || 'Sponsor'}! Please complete your organization profile to proceed with sponsorship opportunities.
+                </Alert>
+            )}
+
             <Paper elevation={3} sx={{ p: 3 }}>
                 {loading ? (
                     <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
@@ -115,8 +135,8 @@ const SponsorProfile = () => {
                         <Grid container spacing={3}>
                             <Grid item xs={12} md={4} sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                                 <Avatar
-                                    src={profile.logoUrl || '/assets/default-company-logo.png'}
-                                    alt={profile.companyName || 'Company Logo'}
+                                    src={profile.logo_url || '/assets/default-company-logo.png'}
+                                    alt={profile.organization_name || 'Company Logo'}
                                     sx={{ width: 150, height: 150, mb: 2 }}
                                 />
                                 <Button
@@ -136,9 +156,9 @@ const SponsorProfile = () => {
                                 <Grid container spacing={2}>
                                     <Grid item xs={12}>
                                         <TextField
-                                            name="companyName"
+                                            name="organization_name"
                                             label="Company Name"
-                                            value={profile.companyName}
+                                            value={profile.organization_name}
                                             onChange={handleChange}
                                             fullWidth
                                             required
@@ -165,9 +185,9 @@ const SponsorProfile = () => {
                                     </Grid>
                                     <Grid item xs={12} sm={6}>
                                         <TextField
-                                            name="contactEmail"
+                                            name="contact_email"
                                             label="Contact Email"
-                                            value={profile.contactEmail}
+                                            value={profile.contact_email}
                                             onChange={handleChange}
                                             fullWidth
                                             required
@@ -176,18 +196,18 @@ const SponsorProfile = () => {
                                     </Grid>
                                     <Grid item xs={12} sm={6}>
                                         <TextField
-                                            name="contactPhone"
+                                            name="contact_phone"
                                             label="Contact Phone"
-                                            value={profile.contactPhone}
+                                            value={profile.contact_phone}
                                             onChange={handleChange}
                                             fullWidth
                                         />
                                     </Grid>
                                     <Grid item xs={12}>
                                         <TextField
-                                            name="description"
+                                            name="organization_description"
                                             label="Company Description"
-                                            value={profile.description}
+                                            value={profile.organization_description}
                                             onChange={handleChange}
                                             fullWidth
                                             multiline
@@ -205,7 +225,7 @@ const SponsorProfile = () => {
                                     startIcon={<Save />}
                                     disabled={saving}
                                 >
-                                    {saving ? 'Saving...' : 'Save Profile'}
+                                    {saving ? 'Saving...' : isNewProfile ? 'Create Profile' : 'Update Profile'}
                                 </Button>
                             </Grid>
                         </Grid>

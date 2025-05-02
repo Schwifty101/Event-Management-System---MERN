@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Grid, Paper, Typography, Box, Card, CardContent, CardHeader, CircularProgress, Alert } from '@mui/material';
-import { EventAvailable, Group, Payments, Hotel, Analytics } from '@mui/icons-material';
+import { EventAvailable, Group, Payments, Hotel, Analytics, BusinessCenter } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { analyticsService } from '../../services/api';
 
@@ -144,6 +144,16 @@ const AdminDashboard = () => {
                         color="error"
                         loading={loading}
                         onClick={() => navigate('/admin/accommodations')}
+                    />
+                </Grid>
+                <Grid md={4} sm={6} xs={12}>
+                    <DashboardCard
+                        title="Sponsorships"
+                        value="Manage"
+                        icon={<BusinessCenter />}
+                        color="warning"
+                        loading={loading}
+                        onClick={() => navigate('/admin/sponsorships')}
                     />
                 </Grid>
                 <Grid md={4} sm={6} xs={12}>

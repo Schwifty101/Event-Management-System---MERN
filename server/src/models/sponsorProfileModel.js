@@ -90,11 +90,16 @@ export class SponsorProfile {
 
             // Add pagination
             if (options.limit) {
-                const limit = parseInt(options.limit);
-                const offset = options.offset ? parseInt(options.offset) : 0;
-                query += ` LIMIT ? OFFSET ?`;
-                const [rows] = await pool.execute(query, [limit, offset]);
-                return rows;
+                const limit = parseInt(options.limit, 10);
+                const offset = parseInt(options.offset || 0, 10);
+
+                // Convert to integers and ensure they're valid
+                if (isNaN(limit) || isNaN(offset)) {
+                    throw new Error('Invalid pagination parameters');
+                }
+
+                query += ` LIMIT ${limit} OFFSET ${offset}`;
+                // Not using parameterized queries for LIMIT/OFFSET as MySQL2 has issues with them
             }
 
             const [rows] = await pool.execute(query);

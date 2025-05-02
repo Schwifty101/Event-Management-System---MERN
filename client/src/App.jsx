@@ -15,12 +15,12 @@ import RolePermissionManagement from './components/admin/RolePermissionManagemen
 import AnalyticsDashboard from './components/admin/AnalyticsDashboard';
 import FinanceDashboard from './components/admin/FinanceDashboard';
 import AdminAccommodationManagement from './components/admin/AdminAccommodationManagement';
+import SponsorshipManagement from './components/admin/SponsorshipManagement';
 
 // Import Sponsor components
 import SponsorDashboard from './components/sponsor/SponsorDashboard';
 import SponsorProfile from './components/sponsor/SponsorProfile';
 import SponsorReports from './components/sponsor/SponsorReports';
-import SponsorshipContracts from './components/sponsor/SponsorshipContracts';
 import SponsorshipPackages from './components/sponsor/SponsorshipPackages';
 
 // Import Event Management components
@@ -132,6 +132,7 @@ function App() {
                                     <Route path="/admin/events" element={<EventManagement />} />
                                     <Route path="/admin/teams" element={<TeamManagement />} />
                                     <Route path="/admin/accommodations" element={<AdminAccommodationManagement />} />
+                                    <Route path="/admin/sponsorships" element={<SponsorshipManagement />} />
                                 </Route>
 
                                 {/* Organizer routes */}
@@ -140,6 +141,7 @@ function App() {
                                     <Route path="/organizer/events" element={<EventManagement />} />
                                     <Route path="/organizer/teams" element={<TeamManagement />} />
                                     <Route path="/organizer/finance" element={<FinanceDashboard />} />
+                                    <Route path="/organizer/sponsorships" element={<SponsorshipManagement />} />
                                 </Route>
 
                                 {/* Judge routes */}
@@ -153,9 +155,6 @@ function App() {
                                 <Route element={<RoleBasedRoute allowedRoles={['sponsor']} />}>
                                     <Route path="/sponsor/dashboard" element={<SponsorDashboard />} />
                                     <Route path="/sponsor/profile" element={<SponsorProfile />} />
-                                    <Route path="/sponsor/contracts" element={<SponsorshipContracts />} />
-                                    <Route path="/sponsor/sponsorships" element={<SponsorshipContracts />} />
-                                    <Route path="/sponsor/sponsorships/:id" element={<SponsorshipContracts />} />
                                     <Route path="/sponsor/packages" element={<SponsorshipPackages />} />
                                     <Route path="/sponsor/reports" element={<SponsorReports />} />
                                 </Route>
